@@ -1,0 +1,65 @@
+name: Windows video app
+on:
+  push:
+    branches: [main]
+    paths: ['windows-app/**', '.github/workflows/windows-app.yml', 'phase2-core.js']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install media tools
+        shell: pwsh
+        run: |
+          choco install ffmpeg --yes --no-progress
+          $ffmpeg = Get-ChildItem C:\ProgramData\chocolatey\lib\ffmpeg -Filter ffmpeg.exe -Recurse | Select-Object -First 1
+          if (!$ffmpeg) { throw 'FFmpeg installation failed' }
+          $ffmpeg.Directory.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          python -m pip install -r windows-app/engine/requirements.txt pyinstaller
+      - name: Recorder regression tests
+        run: node --test tests/*.test.cjs
+      - name: Real media tests
+        run: python -m unittest discover -s windows-app/tests -v
+      - name: Build Windows host
+        run: dotnet publish windows-app/PhraseStudio.csproj -c Release -r win-x64 --self-contained true -o artifacts/PhraseStudio
+      - name: Test local API
+        run: python windows-app/tests/test_api.py artifacts/PhraseStudio/PhraseStudio.exe
+      - name: Bundle Python engine and FFmpeg
+        shell: pwsh
+        run: |
+          python -m PyInstaller --onefile --name phrase-engine --distpath artifacts/PhraseStudio/engine --workpath "$env:RUNNER_TEMP/phrase-build" --specpath "$env:RUNNER_TEMP" windows-app/engine/studio.py
+          Copy-Item (Get-Command ffmpeg.exe).Source artifacts/PhraseStudio/ffmpeg.exe
+          Copy-Item (Get-Command ffprobe.exe).Source artifacts/PhraseStudio/ffprobe.exe
+          Copy-Item windows-app/Start-Portable.cmd artifacts/PhraseStudio/Start-Phrase-Studio.cmd
+          Copy-Item windows-app/README.md artifacts/PhraseStudio/README.md
+          Copy-Item windows-app/THIRD_PARTY.md artifacts/PhraseStudio/THIRD_PARTY.md
+          ffmpeg -version | Out-File artifacts/PhraseStudio/FFmpeg-build.txt
+          ffmpeg -L 2>&1 | Out-File artifacts/PhraseStudio/FFmpeg-license.txt
+          Copy-Item (Join-Path (Split-Path (Get-Command python.exe).Source) 'LICENSE.txt') artifacts/PhraseStudio/Python-LICENSE.txt
+          python -c "import importlib.metadata, pathlib, shutil; d=importlib.metadata.distribution('Pillow'); [shutil.copy2(d.locate_file(f), pathlib.Path('artifacts/PhraseStudio') / ('Pillow-' + pathlib.Path(str(f)).name)) for f in d.files if 'licenses' in str(f) and pathlib.Path(str(f)).name.upper().startswith('LICENSE')]"
+      - name: Test packaged engine
+        shell: pwsh
+        run: |
+          Set-Location artifacts/PhraseStudio
+          ./engine/phrase-engine.exe health
+          if ($LASTEXITCODE -ne 0) { throw 'Packaged engine health check failed' }
+          Set-Location ../..
+          python windows-app/tests/test_api.py artifacts/PhraseStudio/PhraseStudio.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PhraseStudio-Windows-x64
+          path: artifacts/PhraseStudio/
+          retention-days: 30

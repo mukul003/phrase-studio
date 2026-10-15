@@ -19,11 +19,11 @@ User feedback, 15 October 2026: generating a script, formatting it, entering fie
 - Guided recording provides next-section text, fixed controls, optional progress/details and microphone-stream reuse between adjacent clips. Browser capture supports Pause/Resume and Restart current section; Voice Memos timing supports pause and a fresh-marker restart. Completed sections remain saved.
 - Browser audio ZIP / Voice Memos timing JSON and typed timeline are implemented. One viewer turn per phrase uses the duration of a single phrase repetition, never combined teaching audio.
 
-## Pending: build the Windows video generator
+## Windows video desk: first implementation
 
 User clarification, 15 October 2026: the Windows application has not been implemented. It is a new build; no current Windows repository or project ZIP is required from the user. This supersedes the earlier assumption that an existing Windows app needed integration.
 
-Build the Windows application from the saved Phrase Studio requirements and the deployed recorder's schema-v3 contract. Include a simple local UI, single-package import, automatic source matching/alignment, saved render presets and one Generate action. Reuse proven utilities where appropriate, but do not assume older TTS repositories are the new application.
+The new `windows-app/` implements schema-v3 browser ZIP import, a local ASP.NET Core UI, saved quality presets, progress/cancel and static 1080p30 video generation through Python/FFmpeg. It measures actual clip durations, preserves repetitions and intro/outro, and inserts one silent viewer turn. See `windows-app/README.md` for launch/build instructions and verification limits. Automatic matching/alignment for continuous or enhanced audio remains pending.
 
 One-take recording should only become the default once automatic alignment and rendering have been verified with actual recordings. Until then, guided section recording supplies reliable timings. The current web app does not automatically generate the final MP4.
 
