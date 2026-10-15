@@ -21,3 +21,5 @@
 - Pause/resume applies to native browser MediaRecorder; elapsed fallback excludes pause gaps. Restart discards only the unfinished take and retains completed sections/any previous successful take until its replacement saves.
 - The Voice Memos companion cannot control Apple's recording. Pause discards only the unfinished timing interval, and resume/restart uses a new sync anchor for the same section.
 - Save the interrupted section checkpoint; after a reload require a clean re-record of an unsaved take rather than claiming in-memory audio can be restored.
+
+- Script voice revision: keep the parser labels as metadata while writing the spoken fields around connected everyday moments. Replace repetitive textbook definitions and repeated example/cue openers with varied, clear narration. Include a concrete style reference and a silent read-aloud editing pass in the generation prompt. Script quality is editorial; parser tests establish compatibility, not that a model's future audio will sound natural.
