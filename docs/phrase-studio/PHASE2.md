@@ -2,6 +2,20 @@
 
 Open `phase2.html` from either Phase 1 page. The Work Life lesson is preloaded, including the conversational introduction and outro. All words are editable. Saved Phase 1 sessions remain in their existing storage and formats.
 
+## Paste a generated response
+
+Paste the entire generated lesson into the box at the top, then Parse & fill lesson to review, or Start recording this lesson to parse and create the session directly. No field-by-field entry or JSON file is required. The detailed editor is collapsed by default.
+
+The parser accepts labeled plain text, common numbered Markdown, sentence/summary/example tables, JSON lessons and an exported session's lesson object. Intro/Introduction, Sentence/Phrase, Summary/Meaning/Explanation, Example and Outro/Conclusion are recognized. Multiline fields are preserved. Missing cues are filled automatically. Missing summaries/examples produce a specific error and do not overwrite the current editor. Unlabeled monologues cannot be segmented reliably; use the built-in generation prompt to get a consistent format.
+
+Open “Get a reusable generation prompt”, copy it, replace [TOPIC] and ask for the response. A “Try sample format” button demonstrates the format. The complete prompt and sample are served from phase2-import.js.
+
+## Repetitions
+
+“Say each phrase” and “Say each example” each support once or twice. Individual overrides are under each item's optional repetition settings, or paste Repeat phrase: 2 / Repeat example: 2. Existing sessions keep their original structure. Set repetitions before creating a new recording session.
+
+Every repetition gets a separate recording/timing section with a visible repetition counter. Read that section once and tap Next to capture the next repetition. Meaning, cue, intro and outro remain single sections. Viewer turns still occur exactly once after the cue. The viewer timer uses the average duration of completed individual phrase repetitions plus the buffer/minimum, never the sum of the two takes or any example duration.
+
 ## Recording
 
 Choose browser microphone or Apple Voice Memos timing companion before creating a session. Read every section **once**. The sequence is intro, then phrase / meaning / example / cue for each phrase, then outro. The silent viewer turns are generated from metadata; do not record them.
@@ -12,13 +26,13 @@ Voice Memos: Start Apple's recording, return to the page, Start timing, speak th
 
 ## Viewer timing
 
-One viewer repetition per phrase. Default duration is `max(recorded phrase duration + buffer, minimum)`. The phrase duration is never combined with meaning, example, cue, intro, or outro. Browser audio uses decoded media duration when available, elapsed capture time otherwise. Voice Memos uses the marked phrase interval, which includes tap latency. Use the per-phrase exact duration to correct excess silence or tap delay. Before a phrase is recorded, the UI labels the fallback word-count estimate explicitly.
+One viewer repetition per phrase. Default duration is `max(average recorded single-phrase repetition duration + buffer, minimum)`. The phrase duration is never combined with meaning, example, cue, intro, or outro. Browser audio uses decoded media duration when available, elapsed capture time otherwise. Voice Memos uses the marked phrase interval, which includes tap latency. Use the per-phrase exact duration to correct excess silence or tap delay. Before a phrase is recorded, the UI labels the fallback word-count estimate explicitly.
 
 Timer previews show one smoothly shrinking horizontal line, no grey track, no numbers and no ticking. Each phrase's exact time can be adjusted after recording. Intro/outro have no viewer turns.
 
 ## Export contract
 
-Schema v3, `mode: learn-and-practise`, `narratorRepetitions: 1`, `viewerRepetitions: 1`. Legacy Phase 1 importers must explicitly add v3 support; treating these teaching clips as twice-spoken phrases is incorrect.
+Schema v3, `mode: learn-and-practise`, `narratorRepetitions` holds the lesson phrase default (1 or 2), and `viewerRepetitions: 1`. The `phraseRepetitions` and `exampleRepetitions` maps give the actual count for each phrase ID. Each spoken entry includes `repetitionIndex` and `repetitionCount`. The first take keeps its original segment ID; a second take uses a unique `-repeat-2` suffix. Legacy Phase 1 importers must explicitly add v3 support; treating these teaching clips as twice-spoken phrases is incorrect.
 
 - `lesson`: editable script and timing settings.
 - `segments`: typed spoken sections and recording metadata, no binary blobs.

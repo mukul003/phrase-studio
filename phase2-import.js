@@ -1,0 +1,44 @@
+(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./phase2-core'):root.Phase2);if(typeof module==='object'&&module.exports)module.exports=api;else root.Phase2Import=api;})(typeof globalThis!=='undefined'?globalThis:this,function(P){
+'use strict';
+const DEFAULT_CUE='Your turn. Say the sentence aloud.';
+const GENERATION_PROMPT=`Create a Phrase Studio Phase 2 English lesson about [TOPIC]. Include exactly 10 short, easy-to-say sentences for adult beginners. For each sentence, give a short conversational summary explaining its meaning and when to use it, and one natural example. Write a friendly intro and outro as if talking to one friend. Use simple words and short sentences. Do not include stage directions, numbering inside spoken text, or practice countdowns. Return only this format, repeating the Sentence/Summary/Example block for all 10 sentences:\n\nTitle: [lesson title]\nPhrase repetitions: 1\nExample repetitions: 1\nIntro: [friendly spoken introduction]\n\nSentence 1: [sentence]\nSummary: [meaning and when to use it]\nExample: [spoken natural example]\n\nSentence 2: [sentence]\nSummary: [meaning and when to use it]\nExample: [spoken natural example]\n\n...continue through Sentence 10...\n\nOutro: [friendly spoken closing]\n\nOptional: add Cue: [short invitation to speak] to a sentence. Without it the app adds a friendly cue. To repeat a particular sentence or example, add Repeat phrase: 2 or Repeat example: 2 inside that sentence block. Default repetitions can be 1 or 2.`;
+const EXAMPLE=`Title: Work Life — Learn and Practise\nPhrase repetitions: 1\nExample repetitions: 1\nIntro: Hey! How’s your workday going? Let’s practise a few simple sentences you can use at work.\n\nSentence 1: I start work at nine.\nSummary: Use this to tell someone when your working day begins. Change nine to your own starting time.\nExample: I start work at eight, so I leave home early.\n\nSentence 2: Could you help me with this?\nSummary: This is a polite way to ask a colleague for help.\nExample: Could you help me with this report?\nRepeat phrase: 2\n\nOutro: Nice work! Try using one of these sentences today. See you next time!`;
+function clean(line){return line.trim().replace(/^>\s*/,'').replace(/^#{1,6}\s*/,'').replace(/^[-*+]\s+/,'').replace(/\*\*|__/g,'').replace(/^\[([^\]]+)\]$/,'$1').trim();}
+function repeatValue(value){const text=String(value).trim().toLowerCase();if(/^(1|once|one|1x|x1)$/.test(text))return 1;if(/^(2|twice|two|2x|x2)$/.test(text))return 2;throw Error('Repetitions must be 1 (once) or 2 (twice).');}
+function fromObject(raw,warnings){const value=raw.lesson||raw;if(!value||typeof value!=='object')throw Error('Paste a lesson object with a phrases or sentences array.');const rows=value.phrases||value.sentences;if(!Array.isArray(rows))throw Error('The JSON needs a phrases or sentences array.');let added=0;const lesson=P.validateLesson({...value,title:value.title||value.topic||'Imported lesson',intro:value.intro||value.introduction||'',outro:value.outro||value.conclusion||value.closing||'',phraseRepetitions:value.phraseRepetitions??value.narratorRepetitions??1,phrases:rows.map(p=>{const cue=p.cue||p.practiceCue||DEFAULT_CUE;if(!p.cue&&!p.practiceCue)added++;return {...p,phrase:p.phrase??p.sentence??p.text,meaning:p.meaning??p.summary??p.explanation,example:p.example,cue};})});if(added)warnings.push('Added a speaking cue to '+added+' sentence'+(added===1?'':'s')+'.');return lesson;}
+function parseScript(text){
+ if(typeof text!=='string'||!text.trim())throw Error('Paste your generated lesson first.');
+ if(text.length>1000000)throw Error('Paste a lesson smaller than 1 million characters.');
+ const warnings=[];let raw=text.replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').trim();
+ const fenced=raw.match(/```(?:json)?\s*\n([\s\S]*?)```/i);if(fenced&&fenced[1].trim().startsWith('{'))raw=fenced[1].trim();
+ if(raw.startsWith('{')){let value;try{value=JSON.parse(raw);}catch{throw Error('The JSON is incomplete. Paste the full object, or use Sentence / Summary / Example labels.');}return {lesson:fromObject(value,warnings),warnings};}
+ const lesson={title:'',intro:'',outro:'',phraseRepetitions:1,exampleRepetitions:1,phrases:[]};let current=null,field=null,table=null;
+ const addPhrase=value=>{current={phrase:value||'',meaning:'',example:'',cue:''};lesson.phrases.push(current);field='phrase';};
+ function append(value){if(!field||!value)return;const target=['title','intro','outro'].includes(field)?lesson:current;if(!target)return;target[field]=(target[field]?target[field]+'\n':'')+value;}
+ const lines=raw.split('\n');
+ for(let idx=0;idx<lines.length;idx++){
+  const original=lines[idx],line=clean(original);if(!line||/^:::|^```|^[-—_]{3,}$/.test(line))continue;
+  if(/^(?:one silent viewer turn|silent viewer turn|pause|intro start|outro end)\b/i.test(line)){field=null;continue;}
+  if(line.includes('|')){const cells=line.replace(/^\|/,'').replace(/\|$/,'').split(/(?<!\\)\|/).map(s=>clean(s.replace(/\\\|/g,'|')));const norm=cells.map(s=>s.toLowerCase());
+   if(norm.some(s=>/^(phrase|sentence)$/.test(s))&&norm.some(s=>/^(meaning|summary|explanation)$/.test(s))&&norm.includes('example')){table={phrase:norm.findIndex(s=>/^(phrase|sentence)$/.test(s)),meaning:norm.findIndex(s=>/^(meaning|summary|explanation)$/.test(s)),example:norm.indexOf('example'),cue:norm.indexOf('cue')};field=null;continue;}
+   if(table){if(cells.every(s=>/^:?-+:?$/.test(s)))continue;if(cells.length>Math.max(table.phrase,table.meaning,table.example)){addPhrase(cells[table.phrase]);current.meaning=cells[table.meaning];current.example=cells[table.example];current.cue=cells[table.cue]||'';field=null;continue;}}
+  }else table=null;
+  const base=line.replace(/^\d+[.)]\s+/,'').replace(/^\d+\s*[—–-]\s*/,'');
+  let match=base.match(/^(?:default\s+)?(phrase|example)\s+repetitions\s*:\s*(.+)$/i);if(match){const target=/^default\s/i.test(base)||!current?lesson:current;target[match[1].toLowerCase()+'Repetitions']=repeatValue(match[2]);field=null;continue;}
+  match=base.match(/^(?:repeat\s+(phrase|sentence|example)|(repetitions|repeat))\s*:\s*(.+)$/i);if(match){const target=current||lesson;target[match[1]?.toLowerCase()==='example'?'exampleRepetitions':'phraseRepetitions']=repeatValue(match[3]);field=null;continue;}
+  match=base.match(/^(title|lesson title|topic|intro(?:duction)?|opening|outro|conclusion|closing)\s*(?::|[—–-])\s*(.*)$/i)||base.match(/^(intro(?:duction)?|outro|conclusion|closing)$/i);if(match){const name=match[1].toLowerCase();field=/^(title|lesson title|topic)$/.test(name)?'title':/^(intro|introduction|opening)$/.test(name)?'intro':'outro';if(field==='intro'||field==='outro')current=null;if(field==='title')lesson.title='';append(match[2]||'');continue;}
+  match=base.match(/^(?:phrase|sentence)\s*(?:\d+)?\s*(?::|[—–-])\s*(.*)$/i)||base.match(/^(?:phrase|sentence)\s*(?:\d+)?$/i);if(match){addPhrase(match[1]||'');continue;}
+  match=base.match(/^(short summary|summary|meaning(?: and (?:use|when to use it))?|explanation(?: and example)?|natural example|example|practice cue|cue|invitation)\s*(?::|[—–-])\s*(.*)$/i)||base.match(/^(short summary|summary|meaning(?: and (?:use|when to use it))?|explanation(?: and example)?|natural example|example|practice cue|cue|invitation)$/i);
+  if(match){if(!current)throw Error('Add a Sentence line before its '+match[1]+'.');const name=match[1].toLowerCase();field=/example/.test(name)&&!/explanation/.test(name)?'example':/cue|invitation/.test(name)?'cue':name==='explanation and example'?'combined':'meaning';append(match[2]||'');continue;}
+  match=line.match(/^\d+[.)]\s+(.+)$/);if(match){addPhrase(match[1]);continue;}
+  if(current&&/^(?:now,?\s+)?(?:your turn[.!:]|you try[.!]|say (?:it|the sentence) aloud[.!])/i.test(line)){field='cue';append(line);continue;}
+  if(field)append(line);else if(!lesson.title&&/^#\s+/.test(original)){lesson.title=line;}
+ }
+ let added=0;for(let i=0;i<lesson.phrases.length;i++){const p=lesson.phrases[i];if(p.combined){const m=p.combined.match(/\b(?:for example[:,]?|for instance[:,]?|imagine\b)/i);if(!m)throw Error('Sentence '+(i+1)+': separate the explanation and example using Summary: and Example:.');p.meaning=p.meaning||p.combined.slice(0,m.index).trim();p.example=p.example||p.combined.slice(m.index).trim();delete p.combined;}if(!p.cue){p.cue=DEFAULT_CUE;added++;}}
+ if(!lesson.phrases.length)throw Error('No sentences found. Use Sentence 1: …, Summary: …, Example: …, or paste lesson JSON.');
+ if(!lesson.title){lesson.title='Imported lesson';warnings.push('No title found; you can rename the lesson.');}
+ if(!lesson.intro)warnings.push('No intro found.');if(!lesson.outro)warnings.push('No outro found.');if(added)warnings.push('Added a speaking cue to '+added+' sentence'+(added===1?'':'s')+'.');
+ return {lesson:P.validateLesson(lesson),warnings};
+}
+return {parseScript,GENERATION_PROMPT,EXAMPLE,DEFAULT_CUE};
+});
