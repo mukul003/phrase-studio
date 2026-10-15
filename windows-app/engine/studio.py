@@ -1,5 +1,6 @@
 """Local Phrase Studio media engine. No network calls; imported originals are immutable."""
 import argparse
+from functools import lru_cache
 import json
 import math
 import os
@@ -23,7 +24,7 @@ def emit(**value):
 
 
 def run(args):
-    p = subprocess.run([str(x) for x in args], capture_output=True, text=True)
+    p = subprocess.run([str(x) for x in args], capture_output=True, text=True, encoding='utf-8', errors='replace')
     if p.returncode:
         raise ValueError(p.stderr[-3000:] or 'Media command failed')
     return p.stdout
@@ -163,6 +164,7 @@ def import_package(package, root):
         raise
 
 
+@lru_cache(maxsize=128)
 def font(size):
     for candidate in [Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Fonts/segoeui.ttf', Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')]:
         if candidate.exists():
@@ -188,6 +190,8 @@ def wrapped(draw, text, f, width):
 
 
 def slide(doc, section, path, width, height):
+    if len(section.get('text', '')) > 6000:
+        raise ValueError(f"Section {section['id']} has too much text for one slide")
     image = Image.new('RGB', (width, height), BG)
     draw = ImageDraw.Draw(image)
     scale = width / 1920

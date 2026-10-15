@@ -28,7 +28,7 @@ jobs:
           $ffmpeg = Get-ChildItem C:\ProgramData\chocolatey\lib\ffmpeg -Filter ffmpeg.exe -Recurse | Select-Object -First 1
           if (!$ffmpeg) { throw 'FFmpeg installation failed' }
           $ffmpeg.Directory.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          python -m pip install -r windows-app/engine/requirements.txt pyinstaller
+          python -m pip install -r windows-app/engine/requirements.txt pyinstaller playwright
       - name: Build Windows host
         run: dotnet publish windows-app/PhraseStudio.csproj -c Release -r win-x64 --self-contained true -o artifacts/PhraseStudio
       - name: Recorder regression tests
@@ -58,6 +58,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Packaged engine health check failed' }
           Set-Location ../..
           python windows-app/tests/test_api.py artifacts/PhraseStudio/PhraseStudio.exe
+      - name: Test Windows interface in Edge
+        run: python windows-app/tests/test_browser.py artifacts/PhraseStudio/PhraseStudio.exe
       - uses: actions/upload-artifact@v4
         with:
           name: PhraseStudio-Windows-x64

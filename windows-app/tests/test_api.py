@@ -8,7 +8,7 @@ import tempfile
 import time
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
-from test_engine import EngineTest
+import test_engine
 
 BASE = 'http://127.0.0.1:5278'
 
@@ -34,6 +34,7 @@ def wait_job(pid):
 
 
 def main():
+    EngineTest = test_engine.EngineTest
     executable=Path(sys.argv[1]).resolve()
     EngineTest.setUpClass()
     process=None
