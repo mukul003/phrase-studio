@@ -9,3 +9,5 @@ Paste a complete generated response into Phase 2 to fill the lesson automaticall
 See [Phase 2 recording and export guide](docs/phrase-studio/PHASE2.md). The Windows video renderer is a separate application; it must support the schema-v3 timeline before using Phase 2 exports.
 
 Tests: `node --test tests/*.test.cjs`.
+
+The [ease-of-use workflow](docs/phrase-studio/USER_FLOW.md) defines the full script-to-video target and separates deployed features from Windows integration work. Use the [topic-only generation prompt](docs/phrase-studio/GENERATION_PROMPT.md), or enter a topic in the app and copy its prepared prompt.

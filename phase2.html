@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111c32"><title>Phrase Studio — Phase 2</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="phase2.css?v=4"></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111c32"><title>Phrase Studio — Phase 2</title><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="phase2.css?v=5"></head>
 <body><main class="shell"><header><span class="brand">Phrase Studio · Phase 2</span><a href="./">Phase 1</a></header>
 <p id="notice" role="status" aria-live="polite">Opening your saved lessons…</p>
 <section class="panel" id="setup"><h1>Learn &amp; Practise</h1><p>Paste your generated lesson, choose how many times to say each phrase, and start recording.</p>
-<section class="paste-panel"><h2>Paste your complete script</h2><label for="pasteScript">Intro, sentences, summaries, examples and outro<textarea id="pasteScript" rows="9" placeholder="Title: Work Life
+<section class="topic-panel"><h2>1. Get your script</h2><label>Topic name<input id="topicName" placeholder="For example: Work Life" maxlength="150"></label><button id="copyTopicPrompt" class="primary">Copy prompt for this topic</button><p class="hint">Paste the prompt into ChatGPT. Copy its complete response into the box below.</p></section><section class="paste-panel"><h2>2. Paste your complete script</h2><label for="pasteScript">Intro, sentences, summaries, examples and outro<textarea id="pasteScript" rows="9" placeholder="Title: Work Life
 Intro: Hey! Let’s practise together.
 Sentence 1: I start work at nine.
 Summary: Use this to say when your day begins.
@@ -24,12 +24,12 @@ Outro: See you next time!"></textarea></label><div class="actions"><button id="p
 <section id="studio" class="panel hidden"><div class="stats"><span id="position"></span><span id="status"></span></div><h1 id="lessonName"></h1>
 <div id="markerPanel" class="mark hidden"><strong>Say this marker in Voice Memos</strong><p id="marker"></p><p>Speak the marker after starting timing. Then tap “Begin section” immediately before reading.</p></div>
 <div class="phrase"><div class="eyebrow" id="sectionLabel"></div><div id="script"></div><p class="hint" id="instruction"></p></div>
-<div id="viewerPanel" class="viewer hidden"><strong>YOUR TURN — SAY IT ALOUD!</strong><p id="viewerPhrase"></p><div class="line-area"><div id="practiceLine"></div></div></div>
-<p id="timing"></p><div id="practiceSettings" class="settings hidden"><label>Exact viewer time (seconds, optional)<input id="override" type="number" min="1" max="120" step="0.5" placeholder="Automatic"></label><button id="saveOverride">Save viewer time</button><button id="previewTimer">Preview timer</button></div>
+<aside id="upNext" class="up-next"></aside><div id="viewerPanel" class="viewer hidden"><strong>YOUR TURN — SAY IT ALOUD!</strong><p id="viewerPhrase"></p><div class="line-area"><div id="practiceLine"></div></div></div>
+<details id="recordingOptions"><summary>Recording and practice settings</summary><p id="timing"></p><div id="practiceSettings" class="settings hidden"><label>Exact viewer time (seconds, optional)<input id="override" type="number" min="1" max="120" step="0.5" placeholder="Automatic"></label><button id="saveOverride">Save viewer time</button><button id="previewTimer">Preview timer</button></div>
 <div id="micControls"><label>Microphone mode<select id="micMode"><option value="balanced">Balanced Voice</option><option value="speech">Speech optimized</option><option value="natural">Natural</option></select></label><div class="level"><label for="meter">Input level</label><meter id="meter" min="0" max="100" value="0"></meter><span id="level"></span></div></div>
-<div class="clock"><strong id="elapsed">0.0s</strong></div>
-<div class="actions"><button id="record" class="primary">Record section</button><button id="begin" class="hidden">Begin section</button><button id="next" class="primary" disabled>Save &amp; next section →</button><button id="stop" disabled>Stop &amp; save</button></div>
+</details><div class="clock"><strong id="elapsed">0.0s</strong></div>
+<div class="actions record-actions"><button id="record" class="primary">Record section</button><button id="begin" class="hidden">Begin section</button><button id="next" class="primary" disabled>Save &amp; next section →</button><button id="stop" disabled>Stop &amp; save</button></div>
 <div class="actions"><button id="previous">← Previous</button><button id="skip">Next section →</button><button id="play">Play this section</button><button id="previewLesson">Preview full lesson</button><button id="stopPreview" disabled>Stop preview</button></div>
 <div class="actions"><button id="exportZip" class="primary">Export audio + JSON ZIP</button><button id="exportJson">Download timing JSON</button><button id="back">Back to lessons</button></div>
-<p class="hint" id="exportHelp"></p><h2>Recording progress</h2><div id="progress"></div>
-</section></main><script src="phase2-core.js?v=4"></script><script src="phase2-import.js?v=4"></script><script src="phase2-work-life.js?v=4"></script><script src="phase2.js?v=4"></script></body></html>
+<p class="hint" id="exportHelp"></p><details id="allSections"><summary>All sections — jump or retake</summary><div id="progress"></div></details>
+</section></main><script src="phase2-core.js?v=5"></script><script src="phase2-import.js?v=5"></script><script src="phase2-work-life.js?v=5"></script><script src="phase2.js?v=5"></script></body></html>

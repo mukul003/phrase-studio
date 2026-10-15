@@ -11,3 +11,7 @@
 - Add a deterministic bulk-paste parser for labeled text/Markdown/tables/JSON. Validate the whole parsed lesson before replacing editor fields. Generate missing speaking cues automatically, but never guess required summary/example boundaries.
 - Allow once/twice narrator phrases and examples globally or per item, using separately timed takes. Viewer duration averages individual phrase takes only.
 - Keep the existing Phase 2 storage database and first-take IDs stable so saved sessions continue to open. New repetition settings apply to newly created sessions.
+
+- Ease of use is a product acceptance requirement: topic → generate → one paste → natural recording → one package → Generate. See USER_FLOW.md for implemented/pending boundaries.
+- Retain guided capture until actual Windows automatic alignment is integrated; do not make an unsupported one-take workflow the default.
+- Store non-secret recording preferences locally; respect explicit script settings and preserve preferences otherwise. Keep the microphone stream across Next transitions and release it on Stop, final save or error.
