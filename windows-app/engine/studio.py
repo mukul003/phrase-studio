@@ -4,6 +4,7 @@ from functools import lru_cache
 import json
 import math
 import os
+import re
 from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
@@ -40,6 +41,25 @@ def duration(path):
     if not streams:
         raise ValueError(f'No audio in {Path(path).name}')
     return float(streams[0].get('duration') or d['format']['duration'])
+
+
+def audio_window(path, length):
+    """Trim only quiet edges; preserve every internal pause and the original file."""
+    result = subprocess.run(['ffmpeg', '-v', 'info', '-nostdin', '-i', str(path), '-vn', '-af', 'silencedetect=noise=-45dB:d=0.25', '-f', 'null', '-'], capture_output=True, text=True, encoding='utf-8', errors='replace')
+    if result.returncode:
+        raise ValueError(result.stderr[-2000:])
+    starts = [float(x) for x in re.findall(r'silence_start: ([0-9.e+-]+)', result.stderr)]
+    ends = [float(x) for x in re.findall(r'silence_end: ([0-9.e+-]+)', result.stderr)]
+    start, end = 0.0, length
+    if starts and ends and starts[0] < .03:
+        if ends[0] >= length - .1:
+            raise ValueError(f'{Path(path).name}: recording is silent. Re-record this section.')
+        start = max(0, ends[0] - .1)
+    if starts and ends and ends[-1] >= length - .1:
+        end = min(length, starts[-1] + .1)
+    if end <= start:
+        raise ValueError('Recording has no usable speech; re-record this section')
+    return start, end
 
 
 def safe_member(name):
@@ -84,6 +104,7 @@ def validate(root):
         raise ValueError('Duplicate timeline sections')
     warnings = []
     measured = {}
+    trimmed_count = 0
     for s in timeline:
         d = float(s['durationSeconds'])
         if not math.isfinite(d) or not 0 < d <= 1800:
@@ -105,9 +126,14 @@ def validate(root):
             raise ValueError('Invalid recorded audio duration')
         if abs(actual - d) > .25:
             warnings.append(f"{s['id']}: using measured audio duration ({actual:.2f}s instead of {d:.2f}s).")
-        s['durationSeconds'] = actual
+        trim_start, trim_end = audio_window(path, actual)
+        if trim_start > .05 or actual - trim_end > .05:
+            trimmed_count += 1
+        s['source']['trimStartSeconds'] = trim_start
+        s['source']['trimEndSeconds'] = trim_end
+        s['durationSeconds'] = trim_end - trim_start
         if s['type'] == 'phrase':
-            measured.setdefault(s['phraseId'], []).append(actual)
+            measured.setdefault(s['phraseId'], []).append(s['durationSeconds'])
     for s in timeline:
         if s['type'] != 'viewer-turn':
             continue
@@ -132,6 +158,8 @@ def validate(root):
         at += s['frames']
         s['endSeconds'] = at / FPS
     doc['totalDurationSeconds'] = at / FPS
+    if trimmed_count:
+        warnings.append(f'Quiet recording edges removed from {trimmed_count} sections. Original audio is kept.')
     doc['warnings'] = warnings
     return doc
 
@@ -240,7 +268,7 @@ def render(root, output, preset='master'):
                 args += ['-f', 'lavfi', '-i', f'color=c={ACCENT}:s={line_width}x6:r={FPS}', '-filter_complex', f"[0:v][1:v]overlay=x='{x}-{line_width}*n/{max(1, frames - 1)}':y={y}:shortest=1,drawbox=x=0:y={y}:w={x}:h=6:color={BG}:t=fill[v]", '-map', '[v]']
                 run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', seconds, '-c:a', 'pcm_s16le', audio])
             else:
-                run(['ffmpeg', '-v', 'error', '-y', '-i', root / section['source']['file'], '-vn', '-af', f'aformat=channel_layouts=mono,apad,atrim=duration={seconds},asetpts=PTS-STARTPTS', '-ar', 48000, '-ac', 2, '-c:a', 'pcm_s16le', audio])
+                run(['ffmpeg', '-v', 'error', '-y', '-ss', section['source']['trimStartSeconds'], '-i', root / section['source']['file'], '-vn', '-af', f'atrim=duration={section["durationSeconds"]},asetpts=PTS-STARTPTS,aformat=channel_layouts=mono,apad,atrim=duration={seconds},asetpts=PTS-STARTPTS', '-ar', 48000, '-ac', 2, '-c:a', 'pcm_s16le', audio])
             args += ['-frames:v', frames, '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', '20', '-threads', '2', '-pix_fmt', 'yuv420p', '-r', FPS, video]
             run(args)
             videos.append(video)
@@ -263,7 +291,7 @@ def render(root, output, preset='master'):
         info = probe(temporary)
         v = next(s for s in info['streams'] if s['codec_type'] == 'video')
         a = next(s for s in info['streams'] if s['codec_type'] == 'audio')
-        if (v['width'], v['height'], v['codec_name'], v['pix_fmt'], v['r_frame_rate']) != (width, height, 'h264', 'yuv420p', '30/1') or a['channels'] != 2 or a['sample_rate'] != '48000' or a['codec_name'] != 'aac' or abs(float(info['format']['duration']) - doc['totalDurationSeconds']) > .15:
+        if (v['width'], v['height'], v['codec_name'], v['pix_fmt'], v['r_frame_rate']) != (width, height, 'h264', 'yuv420p', '30/1') or a['channels'] != 2 or a['sample_rate'] != '48000' or a['codec_name'] != 'aac' or abs(float(info['format']['duration']) - doc['totalDurationSeconds']) > .15 or abs(float(v['duration']) - float(a['duration'])) > .06:
             raise ValueError('Export validation failed')
         shutil.copyfile(temporary, output)
         output.with_suffix('.report.json').write_text(json.dumps({'preset': preset, 'durationSeconds': doc['totalDurationSeconds'], 'warnings': doc['warnings'], 'streams': info['streams']}, indent=2), encoding='utf-8')

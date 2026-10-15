@@ -20,6 +20,7 @@ Develop on Linux/macOS: install .NET 8, Python, FFmpeg and the requirements; run
 
 - Schema-v3 browser ZIP import, audio probing, complete lesson/order/repetition validation, readable section review and saved projects.
 - Phrase/example repetition settings from the recorder; exactly one silent viewer turn after each cue. Measured individual phrase durations are averaged, then buffer/minimum applied; a manual practice override wins.
+- Quiet recording edges trimmed conservatively (-45 dB for at least 250 ms, retaining 100 ms padding); internal pauses preserved. Silent takes require a retake. Viewer timing uses the trimmed phrase, avoiding recording-button delays.
 - Intro/outro preserved. Original ZIP and clips kept. Untrusted ZIP paths, duplicate names, excessive sizes, missing recordings, invalid durations and incomplete exports are rejected.
 - Static branded slides, adaptive text wrapping and a shrinking colored practice line without a track, numbers or ticking. No footage or word highlighting.
 - Full HD 1920×1080 or quick 1280×720 preview, both 30 fps H.264/yuv420p, AAC stereo 48 kHz and faststart. Narration is centered in both channels and normalized to -16 LUFS target. Viewer turns are silent.

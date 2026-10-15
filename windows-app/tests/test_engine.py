@@ -108,6 +108,24 @@ class EngineTest(unittest.TestCase):
         viewer = next(s for s in studio.validate(root)['timeline'] if s['type']=='viewer-turn')
         self.assertEqual(viewer['durationSeconds'], 4)
 
+    def test_edge_trimming_keeps_internal_pauses_and_rejects_silent_take(self):
+        import array, math, wave
+        rate = 48000
+        path = self.base / 'quiet-edges.wav'
+        samples = array.array('h')
+        for seconds, voiced in [(1, False), (.4, True), (.5, False), (.4, True), (2, False)]:
+            samples.extend(round(10000*math.sin(2*math.pi*440*i/rate)) if voiced else 0 for i in range(round(seconds*rate)))
+        with wave.open(str(path), 'wb') as w:
+            w.setnchannels(1);w.setsampwidth(2);w.setframerate(rate);w.writeframes(samples.tobytes())
+        start, end = studio.audio_window(path, studio.duration(path))
+        self.assertAlmostEqual(start, .9, delta=.02)
+        self.assertAlmostEqual(end, 2.4, delta=.02)
+        self.assertAlmostEqual(end-start, 1.5, delta=.03)
+        silent = self.base / 'silent.wav'
+        studio.run(['ffmpeg','-v','error','-y','-f','lavfi','-i','anullsrc=r=48000:cl=mono','-t','1',silent])
+        with self.assertRaisesRegex(ValueError,'silent'):
+            studio.audio_window(silent, 1)
+
     def test_text_fitting_and_safe_paths(self):
         for text in ['../x', '/x', 'C:/x', 'clips\\x']:
             self.assertFalse(studio.safe_member(text))
