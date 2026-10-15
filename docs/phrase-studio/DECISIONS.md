@@ -23,3 +23,6 @@
 - Save the interrupted section checkpoint; after a reload require a clean re-record of an unsaved take rather than claiming in-memory audio can be restored.
 
 - Script voice revision: keep the parser labels as metadata while writing the spoken fields around connected everyday moments. Replace repetitive textbook definitions and repeated example/cue openers with varied, clear narration. Include a concrete style reference and a silent read-aloud editing pass in the generation prompt. Script quality is editorial; parser tests establish compatibility, not that a model's future audio will sound natural.
+
+- Windows implementation, 15 October 2026: the first local video desk now exists under `windows-app/`, superseding the earlier not-yet-implemented status. It uses ASP.NET Core with a bundled Python/Pillow/FFmpeg engine, accepts completed guided browser ZIPs and generates static 1080p30 MP4s. Quiet edges are trimmed conservatively; viewer timing uses individual trimmed phrase takes. Continuous-source alignment remains pending.
+- Windows build, packaged API and Edge interface checks passed for application commit `e6bebd265f9828db0f2a1d176acf11a9c2f3d362`. See `docs/phrase-studio/WINDOWS_VERIFICATION.md` for the downloadable package and exact evidence/limits. The user's own PC has not been accessed or installed remotely.
