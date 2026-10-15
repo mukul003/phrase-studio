@@ -5,7 +5,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 class Element {
-  constructor(){this.value='';this.hidden=false;this.disabled=false;this.files=[];this.children=[];this.events={};this.classList={toggle(){}};}
+  constructor(){this.value='';this.hidden=false;this.disabled=false;this.files=[];this.children=[];this.events={};this.dataset={};this.classList={toggle(){}};}
   addEventListener(name,fn){this.events[name]=fn;}
   replaceChildren(...nodes){this.children=nodes;}
   add(node){this.children.push(node);}

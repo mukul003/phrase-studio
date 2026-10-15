@@ -38,7 +38,7 @@ def main():
             page.locator('#preset').select_option('preview')
             page.get_by_role('button',name='Generate video',exact=True).click()
             expect(page.locator('#result')).to_be_visible(timeout=90000)
-            page.wait_for_function("document.getElementById('video').readyState >= 1",timeout=30000)
+            expect(page.locator('#video')).to_have_attribute('data-ready','true',timeout=30000)
             with page.expect_download() as downloaded:
                 page.get_by_role('link',name='Save video',exact=True).click()
             assert downloaded.value.suggested_filename.endswith('.mp4')

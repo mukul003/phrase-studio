@@ -38,7 +38,7 @@ function showJob(job) {
   $('progress').value=job.progress; $('job-message').textContent=job.message;
   $('cancel').hidden=!busy;controls();
   if (job.status==='completed') {
-    $('result').hidden=false; $('video').src=job.download; $('download').href=job.download;
+    $('result').hidden=false; $('video').dataset.ready='false'; $('video').src=job.download; $('download').href=job.download;
     notice('Your video is ready. Play it here, then save it.');
   } else if (job.status==='failed' || job.status==='cancelled') notice(job.message, job.status==='failed');
   if (busy) timer=setTimeout(poll,1200);
@@ -47,6 +47,8 @@ async function poll() {
   try { const job=await api('/api/projects/'+projectId+'/job');if(job)showJob(job); }
   catch(error) { notice('Connection lost. Keep the app open; reconnecting…',true);timer=setTimeout(poll,3000); }
 }
+$('video').addEventListener('loadedmetadata', () => { $('video').dataset.ready='true'; });
+$('video').addEventListener('error', () => { notice('Video preview unavailable in this browser. Save the video to play it locally.', true); });
 $('import-form').addEventListener('submit', async e => {
   e.preventDefault();const file=$('package').files[0];if(!file)return;
   busy=true;controls();notice('Importing and checking your recordings…');
