@@ -19,11 +19,11 @@ User feedback, 15 October 2026: generating a script, formatting it, entering fie
 - Guided recording provides next-section text, fixed controls, optional progress/details and microphone-stream reuse between adjacent clips.
 - Browser audio ZIP / Voice Memos timing JSON and typed timeline are implemented. One viewer turn per phrase uses the duration of a single phrase repetition, never combined teaching audio.
 
-## Pending: current Windows generator integration
+## Pending: build the Windows video generator
 
-The current Windows app source has not been identified or made available in this workspace. Existing GitHub TTS processors are not proof that they are the running Windows app. Do not silently replace or rebuild that application or claim full end-to-end completion.
+User clarification, 15 October 2026: the Windows application has not been implemented. It is a new build; no current Windows repository or project ZIP is required from the user. This supersedes the earlier assumption that an existing Windows app needed integration.
 
-Before implementing the remainder, inspect the user's current Windows project (repository or supplied project files). Extend its existing UI and FFmpeg services. Add the schema-v3 importer, automatic source matching/alignment, single-package import, saved render preset and one Generate action. Preserve existing working video functionality.
+Build the Windows application from the saved Phrase Studio requirements and the deployed recorder's schema-v3 contract. Include a simple local UI, single-package import, automatic source matching/alignment, saved render presets and one Generate action. Reuse proven utilities where appropriate, but do not assume older TTS repositories are the new application.
 
 One-take recording should only become the default once automatic alignment and rendering have been verified with actual recordings. Until then, guided section recording supplies reliable timings. The current web app does not automatically generate the final MP4.
 

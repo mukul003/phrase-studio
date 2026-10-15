@@ -15,3 +15,5 @@
 - Ease of use is a product acceptance requirement: topic → generate → one paste → natural recording → one package → Generate. See USER_FLOW.md for implemented/pending boundaries.
 - Retain guided capture until actual Windows automatic alignment is integrated; do not make an unsupported one-take workflow the default.
 - Store non-secret recording preferences locally; respect explicit script settings and preserve preferences otherwise. Keep the microphone stream across Next transitions and release it on Stop, final save or error.
+
+- User correction, 15 October 2026: the Windows app is not implemented. Plan it as a new build consuming the live recorder's exports. No existing Windows project source is a prerequisite; this supersedes earlier statements asking the user to supply a current Windows repository/ZIP.
