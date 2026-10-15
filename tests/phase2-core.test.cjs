@@ -11,4 +11,14 @@ test('audio references match the ZIP filenames and exclude binary payload',()=>{
 test('Voice Memos exports source ranges and requires alignment review',()=>{const out=P.buildExport(fixture('voice-memos'));assert.equal(out.requiresSourceAudio,true);assert.equal(out.alignment.reviewRequired,true);assert.equal(out.timeline[0].source.startSeconds,0);assert.equal(out.timeline[0].source.relativeTo,'session-timing-clock');});
 test('draft export cannot claim renderReady when any segment is missing',()=>{const s=fixture();s.segments[3].complete=false;const out=P.buildExport(s);assert.equal(out.renderReady,false);assert.deepEqual(out.incompleteSegmentIds,[s.segments[3].id]);});
 test('reject incomplete scripts, invalid numbers and out-of-range overrides',()=>{for(const value of [-1,0,121,'NaN']){const l=lesson();l.phrases[0].practiceSeconds=value;assert.throws(()=>P.validateLesson(l));}const l=lesson();l.phrases[0].meaning='';assert.throws(()=>P.validateLesson(l));assert.throws(()=>P.validateLesson({title:'x',phrases:[]}));});
-test('ZIP preserves Unicode text and audio bytes with standard CRC',async()=>{const zip=await P.zip([{name:'session.json',data:'{"title":"Learn & Practise — Work Life"}'},{name:'clips/intro.webm',data:new Blob([new Uint8Array([1,2,3,4])])}]);fs.writeFileSync('/tmp/phase2-test.zip',Buffer.from(await zip.arrayBuffer()));assert.equal(zip.type,'application/zip');});
+test('ZIP preserves Unicode text and audio bytes with standard CRC',async()=>{
+ const zip=await P.zip([{name:'session.json',data:'{"title":"Learn & Practise — Work Life"}'},{name:'clips/intro.webm',data:new Blob([new Uint8Array([1,2,3,4])])}]);
+ const path=require('node:path'),os=require('node:os'),cp=require('node:child_process');
+ const directory=fs.mkdtempSync(path.join(os.tmpdir(),'phrase-zip-')),file=path.join(directory,'recording.zip');
+ try{
+  fs.writeFileSync(file,Buffer.from(await zip.arrayBuffer()));
+  const script="import zipfile,json,sys; z=zipfile.ZipFile(sys.argv[1]); assert z.testzip() is None; assert json.loads(z.read('session.json'))['title'].encode('utf-8').hex() == '4c6561726e202620507261637469736520e2809420576f726b204c696665'; assert z.read('clips/intro.webm') == bytes([1,2,3,4])";
+  cp.execFileSync(process.platform==='win32'?'python':'python3',['-c',script,file]);
+  assert.equal(zip.type,'application/zip');
+ }finally{fs.rmSync(directory,{recursive:true,force:true});}
+});

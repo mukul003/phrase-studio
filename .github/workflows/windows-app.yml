@@ -29,12 +29,12 @@ jobs:
           if (!$ffmpeg) { throw 'FFmpeg installation failed' }
           $ffmpeg.Directory.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           python -m pip install -r windows-app/engine/requirements.txt pyinstaller
-      - name: Recorder regression tests
-        run: node --test tests/*.test.cjs
-      - name: Real media tests
-        run: python -m unittest discover -s windows-app/tests -v
       - name: Build Windows host
         run: dotnet publish windows-app/PhraseStudio.csproj -c Release -r win-x64 --self-contained true -o artifacts/PhraseStudio
+      - name: Recorder regression tests
+        run: node --test tests/*.test.cjs windows-app/tests/test_ui.cjs
+      - name: Real media tests
+        run: python -m unittest discover -s windows-app/tests -v
       - name: Test local API
         run: python windows-app/tests/test_api.py artifacts/PhraseStudio/PhraseStudio.exe
       - name: Bundle Python engine and FFmpeg
