@@ -11,3 +11,5 @@ See [Phase 2 recording and export guide](docs/phrase-studio/PHASE2.md). The Wind
 Tests: `node --test tests/*.test.cjs`.
 
 The [ease-of-use workflow](docs/phrase-studio/USER_FLOW.md) defines the full script-to-video target and separates deployed features from Windows integration work. Use the [topic-only generation prompt](docs/phrase-studio/GENERATION_PROMPT.md), or enter a topic in the app and copy its prepared prompt.
+
+Interrupted? Use **Pause recording** then **Resume recording**, or **Restart current section** for a clean take. Completed sections remain saved. Voice Memos mode pauses timing and uses a fresh sync marker to re-record the current section; audio is paused separately in Voice Memos.

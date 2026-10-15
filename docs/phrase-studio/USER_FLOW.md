@@ -16,7 +16,7 @@ User feedback, 15 October 2026: generating a script, formatting it, entering fie
 - One paste parses labels/Markdown/tables/JSON; Start auto-parses new text. Detailed fields are optional.
 - Once/twice settings for phrases/examples globally and individually. Repetition is configuration, not duplicated script text.
 - Saved recording preferences survive new imports when the script does not explicitly override them.
-- Guided recording provides next-section text, fixed controls, optional progress/details and microphone-stream reuse between adjacent clips.
+- Guided recording provides next-section text, fixed controls, optional progress/details and microphone-stream reuse between adjacent clips. Browser capture supports Pause/Resume and Restart current section; Voice Memos timing supports pause and a fresh-marker restart. Completed sections remain saved.
 - Browser audio ZIP / Voice Memos timing JSON and typed timeline are implemented. One viewer turn per phrase uses the duration of a single phrase repetition, never combined teaching audio.
 
 ## Pending: build the Windows video generator

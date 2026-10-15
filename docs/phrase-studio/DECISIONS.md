@@ -17,3 +17,7 @@
 - Store non-secret recording preferences locally; respect explicit script settings and preserve preferences otherwise. Keep the microphone stream across Next transitions and release it on Stop, final save or error.
 
 - User correction, 15 October 2026: the Windows app is not implemented. Plan it as a new build consuming the live recorder's exports. No existing Windows project source is a prerequisite; this supersedes earlier statements asking the user to supply a current Windows repository/ZIP.
+
+- Pause/resume applies to native browser MediaRecorder; elapsed fallback excludes pause gaps. Restart discards only the unfinished take and retains completed sections/any previous successful take until its replacement saves.
+- The Voice Memos companion cannot control Apple's recording. Pause discards only the unfinished timing interval, and resume/restart uses a new sync anchor for the same section.
+- Save the interrupted section checkpoint; after a reload require a clean re-record of an unsaved take rather than claiming in-memory audio can be restored.

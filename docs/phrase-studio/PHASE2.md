@@ -24,6 +24,23 @@ Browser: Record section, then Save & next. Next immediately starts recording the
 
 Voice Memos: Start Apple's recording, return to the page, Start timing, speak the shown session marker, then Begin section. Tap Save & next at each boundary. After the final section, stop Voice Memos separately. Download the JSON and retain the matching M4A. After a stopped/reloaded timing session, speak a fresh marker to anchor the new timing run. Each run is recorded in events. The source audio needs manual marker alignment in the video generator, especially after audio enhancement.
 
+## Interrupted recording: pause and restart
+
+The recording controls include Pause and Restart current section. Completed sections and existing successful takes stay saved.
+
+Browser microphone:
+- Pause recording pauses MediaRecorder and freezes the section clock. No paused time is added to the fallback duration; native media capture omits paused audio.
+- Resume recording continues the same take. Save & next is disabled while paused.
+- Restart current section discards the current unsaved take, resets its clock and immediately starts a clean recording of the same section/repetition. It works while recording or paused, and for retaking a saved section.
+- A previous successful take is retained until its replacement has been saved successfully. Stop & save can also save a take directly from the paused state.
+- The pause location is saved. If the browser page is reloaded, the unsaved in-memory take cannot resume; the saved session returns to that section and asks you to re-record it. Completed audio remains saved.
+
+Apple Voice Memos companion:
+- Pause timing stops the timing run and discards the current incomplete section interval, without changing completed source ranges.
+- The website cannot pause Apple's Voice Memos audio. Pause it in Voice Memos if needed.
+- Resume & restart section or Restart current section requests a fresh sync marker, then Begin section. Read the current section again from the beginning. The interrupted source range is excluded from the exported segment timing.
+- Stop & save while timing is paused keeps the session ready for a later restart. Paused sessions can be reopened at the interrupted section.
+
 ## Viewer timing
 
 One viewer repetition per phrase. Default duration is `max(average recorded single-phrase repetition duration + buffer, minimum)`. The phrase duration is never combined with meaning, example, cue, intro, or outro. Browser audio uses decoded media duration when available, elapsed capture time otherwise. Voice Memos uses the marked phrase interval, which includes tap latency. Use the per-phrase exact duration to correct excess silence or tap delay. Before a phrase is recorded, the UI labels the fallback word-count estimate explicitly.
