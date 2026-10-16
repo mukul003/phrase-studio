@@ -33,3 +33,7 @@
 
 - Generate a PDF automatically after a successful video render. The checkbox defaults on and remembers opt-out, including migration from older settings. Keep one static page per rendered section in exact video order; use the very same rendered images as the video. Provide separate MP4/PDF downloads and restore them with the completed project. PDF errors must preserve the finished video.
 - Read a validated, editable `theme.json` from the application folder for colours, branding, text sizes, card corners and artwork. Snapshot its resolved values in the export report. A full new composition remains a renderer change and packaged-engine rebuild; document that distinction and how to install a new package without losing local projects.
+
+## 16 October 2026 — PDF content modes
+
+Add a remembered All sections / Phrase slides only selector, defaulting to Phrase slides only. The compact PDF includes the opening topic/intro, first SAY IT WITH ME slide per phrase ID, and outro when present, without extra practice, transition, explanation/example/cue or repeated-take pages. Keep the full video unchanged.

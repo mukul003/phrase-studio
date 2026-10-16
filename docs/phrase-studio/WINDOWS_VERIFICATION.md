@@ -1,17 +1,17 @@
 # Verified build — 16 October 2026
 
-Application source commit: `4e7d00672e017206d06e0e434f70be7c5ab8fa1e`.
+Application source commit: `b11e10a8783dec1fc7b18a065e01a4f1f614c2d3`.
 
-[Successful Windows build and checks](https://github.com/mukul003/phrase-studio/actions/runs/38860191742).
-[Download Windows x64 package](https://github.com/mukul003/phrase-studio/actions/runs/38860191742/artifacts/12028579347) (GitHub sign-in required).
+[Successful Windows build and checks](https://github.com/mukul003/phrase-studio/actions/runs/38861486506).
+[Download Windows x64 package](https://github.com/mukul003/phrase-studio/actions/runs/38861486506/artifacts/12029455968) (GitHub sign-in required).
 
 Package: PhraseStudio-Windows-x64, approximately 142 MB. Extract the entire archive and run **Start-Phrase-Studio.cmd**. Runtime/media dependencies are bundled. The artifact expires on 15 November 2026; use Actions → Windows video app → Run workflow to recreate it later.
 
 Passed on the Windows GitHub runner:
 
 - Self-contained .NET Windows x64 publish.
-- 43 Node tests covering existing recorder/parser/timing behavior and video desk import/render/cancel controls.
-- Nine Python media/PDF tests: a real recorder-generated export contract; actual 1080p30 H.264/AAC export; metadata/duration checks; shrinking-line pixel checks; silent viewer interval; repeated phrases/examples and intro/outro; safe imports; measured phrase average/manual override; conservative quiet-edge trimming, retained internal pauses and rejection of a silent take.
+- 44 Node tests covering existing recorder/parser/timing behavior and video desk import/render/cancel controls.
+- Ten Python media/PDF tests: a real recorder-generated export contract; actual 1080p30 H.264/AAC export; metadata/duration checks; shrinking-line pixel checks; silent viewer interval; repeated phrases/examples and intro/outro; safe imports; measured phrase average/manual override; conservative quiet-edge trimming, retained internal pauses and rejection of a silent take.
 - Real HTTP health/import/list/review/settings/render/download/cancel and cross-origin mutation rejection, first with the source engine and then with the bundled executable.
 - Microsoft Edge: one ZIP import → Generate → video metadata loaded in preview → MP4 download → project/output restored after page reload. No page JavaScript errors. This is an automated interface check, not a listening assessment.
 
@@ -28,3 +28,5 @@ Visual revision verified: `studio-cards-v1` uses layered cream/navy cards, bold 
 PDF/theme revision verified: the remembered **Create slide PDF** option defaults on for new and older settings. Real API checks generated and downloaded a PDF, verified page count and order, rerendered with PDF disabled, checked the missing PDF route returns 404, and retained cancellation behaviour. The same checks passed with the bundled engine. Edge downloaded both outputs and restored the PDF link after reload. Nine local/Windows media tests cover landscape pages, source ordering, opt-out and custom-theme validation. A short two-phrase export without transition sound now normalizes audio to frame-exact PCM before AAC muxing, preventing a resampler tail from creating A/V duration drift.
 
 `theme.json` is shipped beside the app and read at each render. `LAYOUT_GUIDE.md` documents manual style changes and the rebuild/install workflow for a completely different composition. A real custom-theme preview and its PDF were checked locally, including stored theme metadata and matching A/V duration. The current cleaned lesson's 61 slide images were also converted to a PDF and visually reviewed; no new video was needed for that PDF.
+
+PDF content modes verified: **Phrase slides only** is the default for new/older settings and selects the opening, the first SAY IT WITH ME take per phrase ID, and the outro when present. **All sections** keeps every section. Tests cover repeated takes, synthetic title without intro, missing outro, mode validation, actual PDFs in both modes, PDF opt-out, and saved UI preference. Real HTTP checks verify the compact two-phrase PDF has four pages. Edge selects All sections, downloads the PDF and restores that selection after reload. Both source and packaged engine checks passed. Video contents/timings remain unaffected by PDF selection.
