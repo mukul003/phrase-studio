@@ -503,20 +503,24 @@ def render(root, output, preset='master', transition_sound='none', create_pdf=Tr
         listing.write_text('\n'.join(f"file '{p.name}'" for p in videos), encoding='utf-8')
         temporary = work / 'final.mp4'
         emit(status='rendering', progress=94, message='Mixing narration and validating export')
+        # Normalize to a frame-exact PCM stream before muxing in both sound modes.
+        # Filtering directly into AAC can add resampler tail samples to short lessons.
+        normalized = work / 'normalized.wav'
+        samples = round(doc['totalDurationSeconds'] * 48000)
+        run(['ffmpeg', '-v', 'error', '-y', '-i', combined, '-af', f'loudnorm=I=-16:TP=-1.5:LRA=11,aresample=48000,apad,atrim=end_sample={samples},asetpts=PTS-STARTPTS', '-ar', 48000, '-ac', 2, '-c:a', 'pcm_s16le', normalized])
         mux = ['ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '1', '-i', listing]
         if transition_sound == 'whoosh' and any(s['type'] == 'transition' for s in doc['timeline']):
-            normalized, effects = work / 'normalized.wav', work / 'effects.wav'
-            run(['ffmpeg', '-v', 'error', '-y', '-i', combined, '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-ar', 48000, '-ac', 2, '-c:a', 'pcm_s16le', normalized])
+            effects = work / 'effects.wav'
             write_effects(doc['timeline'], effects)
             mux += ['-i', normalized, '-i', effects, '-filter_complex', '[1:a][2:a]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]', '-map', '0:v:0', '-map', '[a]']
         else:
-            mux += ['-i', combined, '-map', '0:v:0', '-map', '1:a:0', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11']
+            mux += ['-i', normalized, '-map', '0:v:0', '-map', '1:a:0']
         run(mux + ['-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', 48000, '-ac', 2, '-movflags', '+faststart', temporary])
         info = probe(temporary)
         v = next(s for s in info['streams'] if s['codec_type'] == 'video')
         a = next(s for s in info['streams'] if s['codec_type'] == 'audio')
         if (v['width'], v['height'], v['codec_name'], v['pix_fmt'], v['r_frame_rate']) != (width, height, 'h264', 'yuv420p', '30/1') or a['channels'] != 2 or a['sample_rate'] != '48000' or a['codec_name'] != 'aac' or abs(float(info['format']['duration']) - doc['totalDurationSeconds']) > .15 or abs(float(v['duration']) - float(a['duration'])) > .06:
-            raise ValueError('Export validation failed')
+            raise ValueError(f"Export validation failed: video {v.get('duration')}s, audio {a.get('duration')}s, expected {doc['totalDurationSeconds']}s.")
         shutil.copyfile(temporary, output)
         pdf_warning = None
         if create_pdf:

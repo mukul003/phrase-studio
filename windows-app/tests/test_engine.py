@@ -143,6 +143,12 @@ class EngineTest(unittest.TestCase):
             for turn in [s for s in doc['timeline'] if s['type']=='viewer-turn']:
                 wav.setpos(round((turn['startSeconds']+.2)*48000))
                 self.assertLess(max(map(abs,array.array('h',wav.readframes(20000)))),20)
+        # A second export with both optional outputs off must remain frame accurate.
+        off=root/'video-only.mp4'
+        studio.render(root,off,'preview','none',create_pdf=False)
+        self.assertFalse(off.with_suffix('.pdf').exists())
+        streams=studio.probe(off)['streams']
+        self.assertLess(abs(float(streams[0]['duration'])-float(streams[1]['duration'])),.04)
         no_intro=copy.deepcopy(source)
         no_intro['lesson']['intro']=''
         no_intro['timeline']=no_intro['timeline'][1:]
