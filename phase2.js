@@ -17,11 +17,53 @@ function readEditor(){return P.validateLesson({title:$('title').value,phraseRepe
 function current(){return session.segments[index];}
 function phrase(){return session.lesson.phrases.find(p=>p.id===current().phraseId);}
 function disabled(id,value){$(id).disabled=value;}
+// Keep the recording path separate from navigation, playback and downloads.
+function renderRecordingActions(){
+ const memo=session.source==='voice-memos',complete=session.segments.every(s=>s.complete);
+ if($('studio').dataset.actionSession!==session.id){
+  for(const id of ['reviewOptions','downloadOptions','recordingHelp','stopOptions','allSections','recordingOptions'])$(id).open=false;
+  $('studio').dataset.actionSession=session.id;
+ }
+ const show=(id,visible)=>$(id).classList.toggle('hidden',!visible);
+ show('record',!active&&!paused&&!previewing);
+ show('next',active&&!paused&&!markerPending&&!previewing);
+ show('begin',markerPending&&!previewing);
+ show('pauseRecording',(active&&!markerPending||paused)&&!previewing);
+ show('restartSection',(active&&!markerPending||paused)&&!previewing);
+ show('stopPreview',previewing);
+ show('stopOptions',(active||paused)&&!previewing);
+ for(const id of ['reviewOptions','downloadOptions','recordingOptions','recordingHelp','back'])show(id,!active&&!paused&&!previewing&&!busy);
+ show('sourceNote',memo&&!previewing);
+ $('sourceNote').textContent='Voice Memos records your audio separately. This screen tracks section timings only.';
+ $('record').textContent=busy?'Please wait…':current().complete?'Record this section again':memo?'Start timing':'Start recording';
+ $('next').textContent=index===session.segments.length-1?'Save & finish':'Save & next →';
+ $('begin').textContent='Marker spoken — begin section';
+ $('pauseRecording').textContent=paused?(memo?'Resume with new marker':'Resume recording'):'Pause';
+ $('pauseRecording').classList.toggle('primary',paused);
+ $('restartSection').textContent='Redo this section';
+ $('record').classList.toggle('primary',!complete);
+ $('stop').textContent=memo&&(paused||markerPending)?'End timing session':'Save this section & stop';
+ $('stopHelp').textContent=memo&&(paused||markerPending)?'End timing here. Earlier completed sections stay saved; this section needs a fresh marker when you return.':'Save this section without moving on. You can continue later.';
+ $('flowHint').textContent=previewing?'Listening. Stop playback to return to recording.':busy?'Saving or preparing your recording…':markerPending?'Say the marker above, then begin the section.':paused?(memo?'Timing paused. Pause Voice Memos separately; resume with a new marker.':'Paused. Resume to continue, or redo for a clean take.'):active?'Read once. Tap Save & next as soon as you finish.':complete?'Lesson complete. Open Finish & download below.':current().complete?'This section is saved. Record it again or choose another under Review.':memo?'Start Voice Memos first, then tap Start timing.':'Tap Start recording, then read the section above.';
+ show('play',!memo);show('previewLesson',!memo);show('exportZip',!memo);
+ $('reviewSummary').textContent=memo?'Review sections':'Review recording';
+ $('exportJson').textContent=memo?'Download timing file':'Timing backup (JSON)';
+ $('exportJson').classList.toggle('primary',memo);
+ if(complete&&$('downloadOptions').dataset.completedSession!==session.id){$('downloadOptions').open=true;$('downloadOptions').dataset.completedSession=session.id;}
+ if(complete)$('exportHelp').textContent=memo?'Stop Voice Memos, then download this timing file. Keep it with the matching audio.':'Your recording is ready. Download the ZIP to create your video in the Windows app.';
+ // Move keyboard focus only if its control has just disappeared.
+ const focused=document.activeElement;
+ if(focused?.classList?.contains('hidden')||focused?.closest?.('.hidden')){
+  const target=previewing?'stopPreview':markerPending?'begin':paused?'pauseRecording':active?'next':'record';
+  $(target).focus?.();
+ }
+}
 function render(){if(!session)return;const s=current(),locked=active||paused||busy||previewing;
  $('setup').classList.add('hidden');$('studio').classList.remove('hidden');$('lessonName').textContent=session.lesson.title;$('position').textContent='Section '+(index+1)+' / '+session.segments.length+' · '+session.code;$('status').textContent=previewing?'Preview':paused?'Paused':active?(markerPending?'Say marker':'Recording / timing'):s.complete?'Saved':'Ready';$('sectionLabel').textContent=s.type==='intro'?'INTRODUCTION':s.type==='outro'?'OUTRO':s.type.toUpperCase();
  if(s.phraseId)$('sectionLabel').textContent=s.type.toUpperCase()+' · Phrase '+(session.lesson.phrases.findIndex(p=>p.id===s.phraseId)+1);
  if(s.repetitionCount>1)$('sectionLabel').textContent+=' · Repetition '+s.repetitionIndex+' of '+s.repetitionCount;$('script').textContent=s.text;$('instruction').textContent='Read this section once. '+(session.source==='browser'?'Save & next starts recording the next section.':'Tap Next section immediately when you finish.');$('elapsed').textContent=(session.source==='browser'&&active?takeElapsedSeconds():paused?pauseDisplaySeconds:s.durationSeconds||0).toFixed(1)+'s';const upcoming=session.segments[index+1];$('upNext').textContent=upcoming?'Next: '+upcoming.type+(upcoming.repetitionCount>1?' ('+upcoming.repetitionIndex+'/'+upcoming.repetitionCount+')':'')+' — '+upcoming.text:'Last section. Save it, then export your recording.';
  $('markerPanel').classList.toggle('hidden',!markerPending);$('marker').textContent=session.syncMarker;$('begin').classList.toggle('hidden',!markerPending);disabled('begin',!markerPending||busy);$('micControls').classList.toggle('hidden',session.source!=='browser');disabled('micMode',locked);$('record').textContent=session.source==='browser'?(s.complete?'Retake section':'Record section'):'Start timing / new marker';disabled('record',locked);disabled('next',!active||paused||markerPending||busy||previewing);$('next').textContent=index===session.segments.length-1?'Save final section':'Save & next section →';disabled('stop',(!active&&!paused)||busy||previewing);$('pauseRecording').textContent=paused?(session.source==='browser'?'Resume recording':'Resume & restart section'):(session.source==='browser'?'Pause recording':'Pause timing');disabled('pauseRecording',(!active&&!paused)||busy||previewing);disabled('restartSection',busy||previewing||(!active&&!paused&&!s.complete&&session.recordingCheckpoint?.segmentId!==s.id));$('interruptionHelp').textContent=paused?(session.source==='browser'?'Recording is paused. Resume to continue this take, or restart this section for a clean take. Earlier sections stay saved.':'Timing is paused and this attempt was discarded. Pause Voice Memos yourself if needed. Resume or Restart will request a new sync marker before you read this section again.'):(session.source==='browser'?'Interrupted? Pause to continue later, or restart only this section. Restart discards the current unsaved take.':'Pause timing discards the current unfinished section. Voice Memos audio must be paused separately; restarting uses a new sync marker.');for(const id of ['previous','skip','play','previewLesson','exportZip','exportJson','back'])disabled(id,locked);disabled('previous',locked||index===0);disabled('skip',locked||index===session.segments.length-1);disabled('back',active||busy||previewing);disabled('exportJson',active||busy||previewing);disabled('play',locked||!s.audio);disabled('previewLesson',locked||session.source!=='browser'||session.segments.some(s=>!s.complete));disabled('exportZip',locked||session.source!=='browser'||session.segments.some(s=>!s.complete));disabled('stopPreview',!previewing);$('practiceSettings').classList.toggle('hidden',!s.phraseId);if(s.phraseId){const p=phrase(),t=P.practiceTime(session.lesson,p,session.segments);$('override').value=p.practiceSeconds??'';$('timing').textContent='Viewer turn: '+t.seconds.toFixed(1)+' seconds · '+t.basis.replaceAll('-',' ');$('viewerPhrase').textContent=p.phrase;}else $('timing').textContent='No viewer timer for '+s.type+'.';for(const id of ['override','saveOverride','previewTimer'])disabled(id,locked);$('exportHelp').textContent=session.source==='browser'?'Complete every section to export audio + JSON. Draft timing JSON is available anytime. The lesson preview inserts one silent viewer turn after each cue.':'Download timing JSON and keep the matching Voice Memos audio. Align its spoken marker before rendering. Phrase timing includes your button-tap delay; set an exact viewer time if needed.';
+ renderRecordingActions();
  $('progress').replaceChildren(...session.segments.map((segment,i)=>{const b=document.createElement('button');b.type='button';b.textContent=(segment.complete?'✓ ':'○ ')+(i+1)+'. '+segment.type+(segment.repetitionCount>1?' ('+segment.repetitionIndex+'/'+segment.repetitionCount+')':'')+' — '+segment.text.slice(0,65);b.setAttribute('aria-current',String(i===index));b.disabled=locked;b.onclick=()=>{index=i;render();};return b;}));}
 async function newSession(){persistPreferences();if(!db)throw Error('Storage is still opening.');const lesson=readEditor(),n=new Uint32Array(1);crypto.getRandomValues(n);session={id:crypto.randomUUID(),code:String(1000+n[0]%9000),schemaVersion:3,source:$('source').value,lesson,createdAt:new Date().toISOString(),events:[],elapsedSeconds:0,segments:P.segments(lesson).map(s=>({...s,complete:false}))};session.syncMarker='Phrase Studio session '+session.code+' start';paused=false;index=0;await save();render();notice(session.source==='browser'?'Ready. Record the introduction once.':'Start Voice Memos first. Then start timing here and say your session marker.');}
 function closeMic(){stream?.getTracks().forEach(t=>t.stop());stream=null;analyser=null;if(meterContext){meterContext.close().catch(()=>{});meterContext=null;}$('meter').value=0;}
@@ -41,7 +83,7 @@ async function pauseCurrent(){
  busy=true;
  try{
   if(session.source==='browser'){
-   if(typeof recorder?.pause!=='function'||typeof recorder?.resume!=='function')throw Error('This browser cannot pause a take. Use Restart current section for a clean recording.');
+   if(typeof recorder?.pause!=='function'||typeof recorder?.resume!=='function')throw Error('This browser cannot pause a take. Use Redo this section for a clean recording.');
    recorder.pause();pauseStarted=performance.now();paused=true;pauseCount++;pauseDisplaySeconds=takeElapsedSeconds();
    session.events.push({type:'recording-paused',segmentId:current().id,atActiveSeconds:pauseDisplaySeconds});
   }else{

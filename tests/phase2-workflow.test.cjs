@@ -30,4 +30,45 @@ test('multiple browser pauses exclude all gaps, and Stop can save directly from 
 test('Voice Memos pause discards the interrupted section, then resumes it with a fresh marker',async()=>{const h=harness();await h.ready();h.ids.source.value='voice-memos';await h.click('create');await h.click('record');h.advance(1000);await h.click('begin');h.advance(3000);await h.click('next');h.advance(2000);await h.click('pauseRecording');assert.equal(h.read('paused'),true);assert.equal(h.read('active'),false);assert.equal(h.read('index'),1);assert.equal(h.read('current().complete'),false);assert.equal(h.read('session.segments[0].complete'),true);assert.match(h.ids.interruptionHelp.textContent,/Pause Voice Memos yourself/);const clock=h.read('session.elapsedSeconds');h.advance(120000);await h.click('pauseRecording');assert.equal(h.read('markerPending'),true);assert.equal(h.read('session.elapsedSeconds'),clock);h.advance(1000);await h.click('begin');h.advance(4000);await h.click('next');assert.equal(h.read('session.segments[1].durationSeconds'),4);assert.equal(h.read('session.events.filter(e=>e.type==="sync-marker").length'),2);assert.equal(h.read('session.events.filter(e=>e.type==="section-discarded").length'),1);assert.equal(h.read('session.recordingCheckpoint'),undefined);await h.click('stop');});
 test('Voice Memos restart during an active section creates a new anchor without overwriting earlier ranges',async()=>{const h=harness();await h.ready();h.ids.source.value='voice-memos';await h.click('create');await h.click('record');h.advance(1000);await h.click('begin');h.advance(3000);await h.click('next');const end=h.read('session.segments[0].sourceEndSeconds');h.advance(2000);await h.click('restartSection');assert.equal(h.read('index'),1);assert.equal(h.read('markerPending'),true);assert.equal(h.read('current().complete'),false);assert.equal(h.read('session.segments[0].sourceEndSeconds'),end);h.advance(1000);await h.click('begin');h.advance(5000);await h.click('stop');assert.equal(h.read('current().durationSeconds'),5);assert.ok(h.read('current().sourceStartSeconds')>=end);});
 test('restoring a paused saved-section retake returns to that section and requests re-recording',async()=>{const h=harness();await h.ready();await h.click('create');await h.click('record');await h.click('next');await h.click('stop');h.read('index=0;render()');await h.click('restartSection');await h.click('pauseRecording');assert.equal(h.read('session.recordingCheckpoint.segmentId'),'intro');await h.read('discardBrowserTake()');await h.click('back');await h.click('resume');assert.equal(h.read('index'),0);assert.equal(h.read('current().complete'),true);assert.match(h.ids.notice.textContent,/Re-record the interrupted current section/);assert.equal(h.read('paused'),false);assert.equal(h.read('active'),false);});
-test('unsupported pause leaves the active take intact and offers restart',async()=>{const h=harness();await h.ready();await h.click('create');await h.click('record');h.read('recorder.pause=undefined');await h.click('pauseRecording');assert.equal(h.read('paused'),false);assert.equal(h.read('active'),true);assert.match(h.ids.notice.textContent,/Restart current section/);await h.click('restartSection');assert.equal(h.read('active'),true);await h.click('stop');});
+test('unsupported pause leaves the active take intact and offers restart',async()=>{const h=harness();await h.ready();await h.click('create');await h.click('record');h.read('recorder.pause=undefined');await h.click('pauseRecording');assert.equal(h.read('paused'),false);assert.equal(h.read('active'),true);assert.match(h.ids.notice.textContent,/Redo this section/);await h.click('restartSection');assert.equal(h.read('active'),true);await h.click('stop');});
+
+
+test('recording screen only shows actions for the current state',async()=>{
+ const h=harness();await h.ready();await h.click('create');
+ const visible=id=>!h.ids[id].classList.contains('hidden');
+ assert.equal(visible('record'),true);
+ for(const id of ['next','pauseRecording','restartSection','begin','stopPreview','stopOptions'])assert.equal(visible(id),false,id);
+ assert.equal(h.ids.downloadOptions.open,undefined);
+ await h.click('record');
+ assert.equal(visible('record'),false);assert.equal(visible('next'),true);
+ for(const id of ['pauseRecording','restartSection','stopOptions'])assert.equal(visible(id),true,id);
+ for(const id of ['reviewOptions','downloadOptions','back','recordingOptions'])assert.equal(visible(id),false,id);
+ await h.click('pauseRecording');assert.equal(visible('next'),false);assert.equal(h.ids.pauseRecording.textContent,'Resume recording');
+ assert.equal(h.ids.pauseRecording.classList.contains('primary'),true);
+ await h.click('pauseRecording');assert.equal(visible('next'),true);
+ await h.click('stop');assert.equal(visible('record'),true);assert.equal(visible('reviewOptions'),true);
+});
+
+test('Voice Memos shows its marker step and only relevant downloads',async()=>{
+ const h=harness();await h.ready();h.ids.source.value='voice-memos';await h.click('create');
+ for(const id of ['play','previewLesson','exportZip'])assert.equal(h.ids[id].classList.contains('hidden'),true,id);
+ assert.equal(h.ids.exportJson.textContent,'Download timing file');
+ await h.click('record');assert.equal(h.ids.begin.classList.contains('hidden'),false);
+ for(const id of ['record','next','pauseRecording','restartSection'])assert.equal(h.ids[id].classList.contains('hidden'),true,id);
+ assert.equal(h.ids.stop.textContent,'End timing session');
+ await h.click('begin');assert.equal(h.ids.next.textContent,'Save & next →');
+ await h.click('pauseRecording');assert.match(h.ids.flowHint.textContent,/Pause Voice Memos separately/);
+});
+
+test('finished lesson opens downloads and preview exposes only Stop playback',async()=>{
+ const h=harness();await h.ready();await h.click('create');
+ h.read('session.segments.forEach(s=>{s.complete=true;s.durationSeconds=2});render()');
+ assert.equal(h.ids.downloadOptions.open,true);assert.match(h.ids.exportHelp.textContent,/Windows app/);
+ assert.equal(h.ids.record.classList.contains('primary'),false);
+ h.read('index=1;render()');const pending=h.ids.previewTimer.onclick();
+ assert.equal(h.ids.stopPreview.classList.contains('hidden'),false);
+ assert.equal(h.ids.record.classList.contains('hidden'),true);
+ assert.equal(h.ids.downloadOptions.classList.contains('hidden'),true);
+ await h.click('stopPreview');await pending;
+ assert.equal(h.ids.downloadOptions.classList.contains('hidden'),false);
+});

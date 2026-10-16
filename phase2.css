@@ -7,3 +7,10 @@ a{color:#aacbff}p{line-height:1.6}h1{font-size:1.65rem}textarea,input,select{box
 .interruption-actions button{border-color:#9f8758;background:#3c3540}.interruption-actions{position:sticky;bottom:84px;background:#15233b;padding:6px 0;z-index:2}#interruptionHelp{line-height:1.5}
 
 .capture-controls{position:sticky;bottom:0;z-index:3;background:#15233b;padding:8px 0 calc(8px + env(safe-area-inset-bottom));box-shadow:0 -8px 18px #101b2c}.capture-controls .record-actions,.capture-controls .interruption-actions{position:static;padding:0;background:transparent;box-shadow:none}.capture-controls .interruption-actions{margin-top:8px}
+
+/* One primary action for the current recording state. */
+.capture-controls .record-actions{margin:0}.capture-controls .record-actions button{width:100%;flex:1 1 100%;min-height:52px;font-size:16px}
+.capture-controls .interruption-actions{margin:8px 0 0;gap:10px}.capture-controls .interruption-actions button{min-height:44px;background:transparent;border-color:#526580;font-size:14px;flex:1 1 40%}.capture-controls .interruption-actions button.primary{background:#347cde;border-color:#347cde}
+.capture-hint{font-size:13px;line-height:1.45;color:#c8dbed;margin:0 0 10px}.capture-controls .interruption-actions:has(> .hidden:first-child):has(> .hidden:last-child){display:none}
+#reviewOptions,#downloadOptions,#stopOptions{border-top:1px solid #354864;padding-top:3px}#recordingHelp{margin:8px 0}#sourceNote{border-left:2px solid #8096b7;padding-left:10px}
+.quiet-button{background:transparent;border:0;min-width:0;padding:12px 0;color:#b9d8ff;font-weight:500}#downloadOptions button{min-height:48px}

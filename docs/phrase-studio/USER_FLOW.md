@@ -40,3 +40,9 @@ One-take recording should only become the default once automatic alignment and r
 ## Acceptance checks for the complete flow
 
 A new topic should require only the topic name, one paste, recording, one import/transfer and Generate. No field-by-field editing, repeated settings, manual clip stitching or required timestamp calculations on the normal path. A mistake should cost one block retake, not a whole new session. Incomplete recordings and uncertain alignment must be identified before publishing. Preserve existing local sessions and backward-compatible schema handling.
+
+## Focused recording controls
+
+The recording screen exposes one primary next action: Start recording/Start timing at rest, Begin section while a Voice Memos marker is pending, Save & next during capture, Resume when paused, and Stop playback while listening. Pause and Redo this section are available only during an active/paused take. Save and stop here is a separate disclosure for ending without advancing.
+
+Review recording/Review sections contains listening and non-recording navigation. Finish & download contains the source-appropriate output and opens automatically when every section is complete. Browser audio ZIP and playback controls are hidden in Voice Memos mode; its primary download is the timing file. Navigation/download/settings groups disappear while capturing or previewing. Voice Memos keeps a visible note that audio is recorded separately, and pausing reminds the user to pause that app separately. Existing recordings, section timing and export contracts remain unchanged.
