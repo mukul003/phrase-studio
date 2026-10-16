@@ -54,16 +54,19 @@ def main():
         try:api('/api/settings',b'{"preset":"preview"}',origin='https://example.com')
         except HTTPError as error:assert error.code==403
         else:raise AssertionError('Cross-origin mutation allowed')
-        api('/api/settings',b'{"preset":"preview"}')
+        api('/api/settings',b'{"preset":"preview","transitionSound":true}')
         assert api('/api/settings')['preset']=='preview'
+        assert api('/api/settings')['transitionSound'] is True
         fixture=EngineTest('test_text_fitting_and_safe_paths')
-        package=fixture.package('api')
+        manifest=EngineTest.base/'api-two.json'
+        subprocess.run(['node',str(test_engine.APP/'tests/make-session.cjs'),str(manifest),'--two'],check=True)
+        package=fixture.package('api',json.loads(manifest.read_text()))
         boundary='PhraseStudioTestBoundary'
         body=(f'--{boundary}\r\nContent-Disposition: form-data; name="package"; filename="recording.zip"\r\nContent-Type: application/zip\r\n\r\n'.encode()+package.read_bytes()+f'\r\n--{boundary}--\r\n'.encode())
         pid=api('/api/projects',body,'multipart/form-data; boundary='+boundary)['id']
         assert api('/api/projects/'+pid)['title']=='Work life'
         assert any(p['id']==pid for p in api('/api/projects'))
-        api('/api/projects/'+pid+'/render',b'{"preset":"preview"}')
+        api('/api/projects/'+pid+'/render',b'{"preset":"preview","transitionSound":true}')
         job=wait_job(pid)
         assert job['status']=='completed',job
         video=api(job['download'])

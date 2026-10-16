@@ -1,10 +1,13 @@
 """Local Phrase Studio media engine. No network calls; imported originals are immutable."""
 import argparse
+import array
+import copy
 from functools import lru_cache
 import json
 import math
 import os
 import re
+import random
 from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
@@ -84,6 +87,81 @@ def expected_sections(lesson):
     return expected
 
 
+def display_text(doc, section):
+    if section['type'] in ('intro', 'outro', 'title'):
+        return doc['title']
+    phrase = next((p for p in doc['lesson']['phrases'] if p['id'] == section.get('phraseId')), None)
+    return phrase['phrase'] if phrase else section.get('text', '')
+
+
+def build_render_plan(doc):
+    """Pacing is separate from speech duration and never lengthens a viewer turn."""
+    plan = []
+    if not any(s['type'] == 'intro' for s in doc['timeline']):
+        plan.append({'id': 'opening-title', 'type': 'title', 'text': doc['title'], 'frames': 2 * FPS, 'audio': 'silence'})
+    previous_phrase = None
+    for original in doc['timeline']:
+        s = copy.deepcopy(original)
+        pid = s.get('phraseId')
+        if s['type'] == 'phrase' and previous_phrase is not None and pid != previous_phrase:
+            plan.append({'id': pid + '-transition', 'type': 'transition', 'phraseId': pid, 'text': '', 'frames': FPS, 'audio': 'silence'})
+        if s['type'] == 'phrase':
+            previous_phrase = pid
+        s['speechFrames'] = s.get('frames', math.ceil(s['durationSeconds'] * FPS))
+        s['holdSeconds'] = 0 if s['type'] == 'viewer-turn' else 1 if s['type'] == 'phrase' else .5
+        s['frames'] = s['speechFrames'] + round(s['holdSeconds'] * FPS)
+        plan.append(s)
+    at = 0
+    for s in plan:
+        s['displayText'] = display_text(doc, s)
+        s['startSeconds'] = at / FPS
+        at += s['frames']
+        s['endSeconds'] = at / FPS
+    return plan
+
+
+def whoosh_pcm(frames, sample_rate=48000):
+    """Original, quiet, shaped wind sound; no external media download."""
+    count = round(frames / FPS * sample_rate)
+    active = min(count, round(.55 * sample_rate))
+    rng = random.Random(9563)
+    samples = array.array('h')
+    slow = fast = 0.0
+    shaped = []
+    for i in range(active):
+        t = i / max(1, active - 1)
+        noise = rng.uniform(-1, 1)
+        cutoff = 500 + 4000 * math.sin(math.pi * t) ** 2
+        alpha = 1 - math.exp(-2 * math.pi * cutoff / sample_rate)
+        fast += alpha * (noise - fast)
+        slow += .025 * (noise - slow)
+        shaped.append((fast - slow) * math.sin(math.pi * t) ** 2)
+    peak = max(map(abs, shaped), default=1) or 1
+    for value in shaped:
+        sample = round(value / peak * .08 * 32767)
+        samples.extend((sample, sample))
+    samples.extend([0] * ((count - active) * 2))
+    if sys.byteorder != 'little':
+        samples.byteswap()
+    return samples.tobytes()
+
+
+def write_effects(timeline, path):
+    with wave.open(str(path), 'wb') as out:
+        out.setnchannels(2)
+        out.setsampwidth(2)
+        out.setframerate(48000)
+        for s in timeline:
+            if s['type'] == 'transition':
+                out.writeframesraw(whoosh_pcm(s['frames']))
+            else:
+                remaining = round(s['frames'] / FPS * 48000)
+                while remaining:
+                    count = min(remaining, 65536)
+                    out.writeframesraw(bytes(count * 4))
+                    remaining -= count
+
+
 def validate(root):
     manifest = root / 'session.json'
     if manifest.stat().st_size > 5_000_000:
@@ -157,7 +235,11 @@ def validate(root):
         s['startSeconds'] = at / FPS
         at += s['frames']
         s['endSeconds'] = at / FPS
-    doc['totalDurationSeconds'] = at / FPS
+    doc['sourceTimeline'] = copy.deepcopy(timeline)
+    doc['timeline'] = build_render_plan(doc)
+    doc['totalDurationSeconds'] = doc['timeline'][-1]['endSeconds']
+    doc['renderFlowVersion'] = 2
+    doc['pacing'] = {'afterPhraseSeconds': 1, 'afterOtherSpokenSectionsSeconds': .5, 'betweenPhrasesSeconds': 1}
     if trimmed_count:
         warnings.append(f'Quiet recording edges removed from {trimmed_count} sections. Original audio is kept.')
     doc['warnings'] = warnings
@@ -218,20 +300,37 @@ def wrapped(draw, text, f, width):
 
 
 def slide(doc, section, path, width, height):
-    if len(section.get('text', '')) > 6000:
+    text = display_text(doc, section)
+    if len(text) > 6000:
         raise ValueError(f"Section {section['id']} has too much text for one slide")
     image = Image.new('RGB', (width, height), BG)
     draw = ImageDraw.Draw(image)
     scale = width / 1920
     def pos(n): return round(n * scale)
+    if section['type'] in ('intro', 'title'):
+        for size in range(120, 39, -2):
+            f = font(pos(size))
+            lines = wrapped(draw, text, f, pos(1660))
+            spacing = pos(size * 1.4)
+            if len(lines) * spacing <= pos(650):
+                break
+        else:
+            raise ValueError('Shorten the topic title so it fits the opening slide')
+        y = (height - len(lines) * spacing) // 2
+        for line in lines:
+            x = (width - draw.textlength(line, font=f)) / 2
+            draw.text((x, y), line, font=f, fill=FG)
+            y += spacing
+        image.save(path)
+        return
     draw.text((pos(130), pos(65)), 'FLUENT ENGLISH FOR YOU', font=font(pos(28)), fill=ACCENT)
     title = doc.get('title', 'Phrase Studio')[:100]
-    heading = {'intro': 'LET’S GET STARTED', 'outro': 'SEE YOU NEXT TIME', 'viewer-turn': 'YOUR TURN — SAY IT ALOUD!', 'phrase': 'SAY IT WITH ME', 'meaning': 'WHAT IT MEANS', 'example': 'IN A CONVERSATION', 'cue': 'GIVE IT A TRY'}[section['type']]
+    heading = {'outro': 'SEE YOU NEXT TIME', 'transition': 'NEXT PHRASE', 'viewer-turn': 'YOUR TURN — SAY IT ALOUD!', 'phrase': 'SAY IT WITH ME', 'meaning': 'WHAT IT MEANS', 'example': 'IN A CONVERSATION', 'cue': 'GIVE IT A TRY'}[section['type']]
     draw.text((pos(130), pos(210)), heading, font=font(pos(30)), fill=ACCENT)
     max_width = pos(1660)
     for size in range(86, 25, -2):
         f = font(pos(size))
-        lines = wrapped(draw, section.get('text', ''), f, max_width)
+        lines = wrapped(draw, text, f, max_width)
         spacing = pos(size * 1.45)
         if len(lines) * spacing <= pos(490):
             break
@@ -245,8 +344,12 @@ def slide(doc, section, path, width, height):
     image.save(path)
 
 
-def render(root, output, preset='master'):
+def render(root, output, preset='master', transition_sound='none'):
+    if transition_sound not in ('none', 'whoosh'):
+        raise ValueError('Unknown transition sound')
     doc = validate(root)
+    metadata = root / 'project.json'
+    metadata.write_text(json.dumps(doc, indent=2), encoding='utf-8')
     width, height = (1280, 720) if preset == 'preview' else (1920, 1080)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='render-', dir=root) as tmp:
@@ -266,6 +369,8 @@ def render(root, output, preset='master'):
                 x, y, line_width = round(130 * width / 1920), round(910 * height / 1080), round(1660 * width / 1920)
                 # A moving colored overlay, masked at the left edge. No background track.
                 args += ['-f', 'lavfi', '-i', f'color=c={ACCENT}:s={line_width}x6:r={FPS}', '-filter_complex', f"[0:v][1:v]overlay=x='{x}-{line_width}*n/{max(1, frames - 1)}':y={y}:shortest=1,drawbox=x=0:y={y}:w={x}:h=6:color={BG}:t=fill[v]", '-map', '[v]']
+                run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', seconds, '-c:a', 'pcm_s16le', audio])
+            elif section['type'] in ('transition', 'title'):
                 run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', seconds, '-c:a', 'pcm_s16le', audio])
             else:
                 run(['ffmpeg', '-v', 'error', '-y', '-ss', section['source']['trimStartSeconds'], '-i', root / section['source']['file'], '-vn', '-af', f'atrim=duration={section["durationSeconds"]},asetpts=PTS-STARTPTS,aformat=channel_layouts=mono,apad,atrim=duration={seconds},asetpts=PTS-STARTPTS', '-ar', 48000, '-ac', 2, '-c:a', 'pcm_s16le', audio])
@@ -287,14 +392,22 @@ def render(root, output, preset='master'):
         listing.write_text('\n'.join(f"file '{p.name}'" for p in videos), encoding='utf-8')
         temporary = work / 'final.mp4'
         emit(status='rendering', progress=94, message='Mixing narration and validating export')
-        run(['ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '1', '-i', listing, '-i', combined, '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-c:a', 'aac', '-b:a', '192k', '-ar', 48000, '-ac', 2, '-movflags', '+faststart', temporary])
+        mux = ['ffmpeg', '-v', 'error', '-y', '-f', 'concat', '-safe', '1', '-i', listing]
+        if transition_sound == 'whoosh' and any(s['type'] == 'transition' for s in doc['timeline']):
+            normalized, effects = work / 'normalized.wav', work / 'effects.wav'
+            run(['ffmpeg', '-v', 'error', '-y', '-i', combined, '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11', '-ar', 48000, '-ac', 2, '-c:a', 'pcm_s16le', normalized])
+            write_effects(doc['timeline'], effects)
+            mux += ['-i', normalized, '-i', effects, '-filter_complex', '[1:a][2:a]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[a]', '-map', '0:v:0', '-map', '[a]']
+        else:
+            mux += ['-i', combined, '-map', '0:v:0', '-map', '1:a:0', '-af', 'loudnorm=I=-16:TP=-1.5:LRA=11']
+        run(mux + ['-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ar', 48000, '-ac', 2, '-movflags', '+faststart', temporary])
         info = probe(temporary)
         v = next(s for s in info['streams'] if s['codec_type'] == 'video')
         a = next(s for s in info['streams'] if s['codec_type'] == 'audio')
         if (v['width'], v['height'], v['codec_name'], v['pix_fmt'], v['r_frame_rate']) != (width, height, 'h264', 'yuv420p', '30/1') or a['channels'] != 2 or a['sample_rate'] != '48000' or a['codec_name'] != 'aac' or abs(float(info['format']['duration']) - doc['totalDurationSeconds']) > .15 or abs(float(v['duration']) - float(a['duration'])) > .06:
             raise ValueError('Export validation failed')
         shutil.copyfile(temporary, output)
-        output.with_suffix('.report.json').write_text(json.dumps({'preset': preset, 'durationSeconds': doc['totalDurationSeconds'], 'warnings': doc['warnings'], 'streams': info['streams']}, indent=2), encoding='utf-8')
+        output.with_suffix('.report.json').write_text(json.dumps({'preset': preset, 'renderFlowVersion': 2, 'pacing': doc['pacing'], 'transitionSound': transition_sound, 'durationSeconds': doc['totalDurationSeconds'], 'timeline': doc['timeline'], 'warnings': doc['warnings'], 'streams': info['streams']}, indent=2), encoding='utf-8')
     emit(status='completed', progress=100, message='Your video is ready')
 
 
@@ -305,6 +418,7 @@ def main():
     parser.add_argument('--project', type=Path)
     parser.add_argument('--output', type=Path)
     parser.add_argument('--preset', choices=['preview', 'master'], default='master')
+    parser.add_argument('--transition-sound', choices=['none', 'whoosh'], default='none')
     args = parser.parse_args()
     try:
         if args.command == 'health':
@@ -316,7 +430,7 @@ def main():
             doc = import_package(args.input, args.project)
             emit(status='imported', title=doc['title'], warnings=doc['warnings'])
         else:
-            render(args.project, args.output, args.preset)
+            render(args.project, args.output, args.preset, args.transition_sound)
     except Exception as exc:
         emit(status='failed', error=str(exc))
         return 1

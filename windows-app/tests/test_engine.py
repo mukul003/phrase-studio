@@ -32,8 +32,9 @@ class EngineTest(unittest.TestCase):
     def package(self, name, doc=None, extras=None, missing=False):
         path = self.base / (name + '.zip')
         with zipfile.ZipFile(path, 'w') as z:
-            z.writestr('session.json', json.dumps(doc or self.doc))
-            for s in self.doc['timeline']:
+            manifest = doc or self.doc
+            z.writestr('session.json', json.dumps(manifest))
+            for s in manifest['timeline']:
                 if s['type'] != 'viewer-turn' and not missing:
                     z.write(self.audio, s['source']['file'])
             for key, value in (extras or {}).items():
@@ -77,6 +78,65 @@ class EngineTest(unittest.TestCase):
         if os.environ.get('PHRASE_QA_OUTPUT'):
             target = Path(os.environ['PHRASE_QA_OUTPUT']);target.mkdir(parents=True, exist_ok=True)
             for file in [output, *root.glob('bar-*.png')]: shutil.copy2(file, target / file.name)
+
+    def test_phrase_only_layout_topic_opening_and_exact_holds(self):
+        root = self.base / 'layout'
+        doc = studio.import_package(self.package('layout'), root)
+        phrases = {p['id']:p['phrase'] for p in doc['lesson']['phrases']}
+        for s in doc['timeline']:
+            if s.get('phraseId'):
+                self.assertEqual(s['displayText'], phrases[s['phraseId']])
+            if s['type'] == 'viewer-turn':
+                self.assertEqual(s['holdSeconds'], 0)
+                self.assertEqual(s['frames'], s['speechFrames'])
+            else:
+                self.assertEqual(s['frames']-s['speechFrames'], 30 if s['type']=='phrase' else 15)
+        intro = doc['timeline'][0]
+        a, b = self.base/'title-a.png', self.base/'title-b.png'
+        studio.slide(doc, intro, a, 1280, 720)
+        changed={**intro,'text':'This entire spoken introduction should never appear on screen.'}
+        studio.slide(doc, changed, b, 1280, 720)
+        self.assertEqual(a.read_bytes(), b.read_bytes())
+        with Image.open(a) as image:
+            self.assertEqual(image.getpixel((30,30)), (16,30,43))
+        meaning=next(s for s in doc['timeline'] if s['type']=='meaning')
+        studio.slide(doc,meaning,a,1280,720)
+        studio.slide(doc,{**meaning,'text':'A changed long explanation that must stay audio only.'},b,1280,720)
+        self.assertEqual(a.read_bytes(), b.read_bytes())
+
+    def test_between_phrase_whoosh_export_and_silent_practice(self):
+        fixture = self.base/'two.json'
+        subprocess.run(['node',str(APP/'tests/make-session.cjs'),str(fixture),'--two'],check=True)
+        source=json.loads(fixture.read_text())
+        root=self.base/'two'
+        doc=studio.import_package(self.package('two',source),root)
+        transitions=[s for s in doc['timeline'] if s['type']=='transition']
+        self.assertEqual(len(transitions),1)  # No transition between repeated takes.
+        transition=transitions[0]
+        self.assertEqual(transition['frames'],30)
+        position=doc['timeline'].index(transition)
+        self.assertEqual(doc['timeline'][position-1]['type'],'viewer-turn')
+        self.assertEqual(doc['timeline'][position+1]['type'],'phrase')
+        output=root/'whoosh.mp4'
+        studio.render(root,output,'preview','whoosh')
+        import array, wave
+        audio=root/'whoosh.wav'
+        studio.run(['ffmpeg','-v','error','-y','-i',output,'-c:a','pcm_s16le',audio])
+        with wave.open(str(audio),'rb') as wav:
+            wav.setpos(round((transition['startSeconds']+.15)*48000))
+            whoosh=array.array('h',wav.readframes(10000))
+            self.assertGreater(max(map(abs,whoosh)),100)
+            wav.setpos(round((transition['startSeconds']+.8)*48000))
+            self.assertLess(max(map(abs,array.array('h',wav.readframes(5000)))),20)
+            for turn in [s for s in doc['timeline'] if s['type']=='viewer-turn']:
+                wav.setpos(round((turn['startSeconds']+.2)*48000))
+                self.assertLess(max(map(abs,array.array('h',wav.readframes(20000)))),20)
+        no_intro=copy.deepcopy(source)
+        no_intro['lesson']['intro']=''
+        no_intro['timeline']=no_intro['timeline'][1:]
+        plan=studio.build_render_plan(no_intro)
+        self.assertEqual(plan[0]['type'],'title')
+        self.assertEqual(plan[0]['displayText'],source['title'])
 
     def test_rejects_traversal_and_removes_partial_import(self):
         root = self.base / 'unsafe'

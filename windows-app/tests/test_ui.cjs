@@ -68,3 +68,16 @@ test('restores a saved project and can cancel a render',async()=>{
   assert.equal(app.get('generate').disabled,false);
   assert.equal(app.get('job-message').textContent,'Rendering cancelled');
 });
+
+test('whoosh defaults off and the saved selection reaches the renderer',async()=>{
+  const app=await boot({saved:true});
+  assert.equal(app.get('transition-sound').checked,false);
+  app.get('transition-sound').checked=true;
+  await app.get('transition-sound').events.change();
+  const settings=app.requests.findLast(r=>r.url==='/api/settings'&&r.options.method==='POST');
+  assert.equal(JSON.parse(settings.options.body).transitionSound,true);
+  await app.get('generate').events.click();
+  const render=app.requests.findLast(r=>r.url.endsWith('/render'));
+  assert.equal(JSON.parse(render.options.body).transitionSound,true);
+  assert.equal(app.get('transition-sound').disabled,true);
+});

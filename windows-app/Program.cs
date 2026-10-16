@@ -125,7 +125,7 @@ app.MapGet("/api/projects/{id}", (string id) => ValidId(id) && File.Exists(Path.
 app.MapGet("/api/settings", () =>
 {
     var file = Path.Combine(data, "settings.json");
-    return File.Exists(file) ? Results.File(file, "application/json") : Results.Ok(new { preset = "master" });
+    return Results.Ok(File.Exists(file) ? JsonSerializer.Deserialize<Settings>(File.ReadAllText(file), jsonOptions) : new Settings("master"));
 });
 app.MapPost("/api/settings", (Settings settings) =>
 {
@@ -146,7 +146,7 @@ app.MapPost("/api/projects/{id}/render", async (string id, Settings settings) =>
         try
         {
             var output = Path.Combine(ProjectPath(id), job.Id + ".mp4");
-            await RunEngine(["render", "--project", ProjectPath(id), "--output", output, "--preset", settings.Preset], result =>
+            await RunEngine(["render", "--project", ProjectPath(id), "--output", output, "--preset", settings.Preset, "--transition-sound", settings.TransitionSound ? "whoosh" : "none"], result =>
             {
                 if (result.TryGetProperty("progress", out var p))
                 {
@@ -194,5 +194,5 @@ if (Environment.GetEnvironmentVariable("PHRASE_OPEN_BROWSER") == "1")
     app.Lifetime.ApplicationStarted.Register(() => Process.Start(new ProcessStartInfo("http://127.0.0.1:5278") { UseShellExecute = true }));
 app.Run();
 
-record Settings(string Preset);
+record Settings(string Preset, bool TransitionSound = false);
 record RenderJob(string Id, string ProjectId, string Status, int Progress, string Message, string? Download);

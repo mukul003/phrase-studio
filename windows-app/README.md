@@ -47,3 +47,13 @@ dotnet build windows-app/PhraseStudio.csproj
 ```
 
 The Windows workflow also publishes a self-contained host, exercises real HTTP import/settings/render/download/cancel, bundles the engine, then repeats HTTP checks with the packaged engine. A Microsoft Edge smoke test imports a ZIP, generates and loads a playable video, downloads it and restores the saved project after reload. The media tests generate a fixture through the real recorder export code, render an actual MP4, probe codecs/duration, inspect the shrinking line and check viewer silence. These synthetic checks do not replace listening to a real recorded lesson or testing your Windows desktop/browser.
+
+## Video flow update — 16 October 2026
+
+The opening shows only the topic in large centered text while the recorded intro plays. Every phrase, meaning/conversation, example and cue slide displays the target phrase, keeping its section heading. Narration is preserved; full explanations and examples are audio only. The outro displays the topic under its closing heading.
+
+After each spoken phrase take, hold its slide in silence for 1 second. After every other spoken section, hold for 0.5 second. The viewer's practice turn retains its original phrase-based duration; these holds are separate. After each viewer turn except the last, a 1-second NEXT PHRASE card introduces the next target. Repeated takes of the same phrase do not trigger a transition. Lessons without recorded intros receive a 2-second topic card.
+
+Enable **Soft whoosh between phrases** for a quiet, locally synthesized transition sound. It is off by default and remembered with video quality. It plays only in the gap between phrases; narration and viewer turns remain clear/silent respectively. Voice normalization happens before effects are mixed, keeping the effect volume consistent. Both preview and master exports use this flow.
+
+Original imports remain unchanged. Existing projects use the updated flow when regenerated; existing MP4 files keep their previous layout. Continuous Voice Memos alignment remains a separate pending feature.

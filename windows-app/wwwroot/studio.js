@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 let projectId = '', jobId = '', timer, ready = false, busy = false;
 function notice(text, error = false) { $('notice').textContent = text; $('notice').classList.toggle('error', error); }
-function controls() { $('generate').disabled = !ready || busy || !projectId; $('import-button').disabled = !ready || busy; $('projects').disabled = busy; $('preset').disabled = busy; }
+function controls() { $('generate').disabled = !ready || busy || !projectId; $('import-button').disabled = !ready || busy; $('projects').disabled = busy; $('preset').disabled = busy; $('transition-sound').disabled = busy; }
 async function api(url, options = {}) {
   const response = await fetch(url, {...options, headers: {'X-Phrase-Studio':'local', ...options.headers}});
   if (response.status === 204) return null;
@@ -25,10 +25,11 @@ async function load(id) {
   $('title').textContent = doc.title;
   $('summary').textContent = `${doc.lesson.phrases.length} phrases · ${Math.ceil(doc.totalDurationSeconds)} seconds · intro/outro kept · one viewer turn per phrase`;
   $('warnings').replaceChildren(...doc.warnings.map(w => { const li=document.createElement('li');li.textContent=w;return li; }));
+  const phraseById = new Map(doc.lesson.phrases.map(p => [p.id,p.phrase]));
   $('timeline').replaceChildren(...doc.timeline.map(s => {
     const li=document.createElement('li');li.className='section';
     const label=document.createElement('span'); label.textContent=`${s.type.replaceAll('-',' ')} · ${(s.endSeconds-s.startSeconds).toFixed(1)}s`;
-    const text=document.createElement('p'); text.textContent=s.text; li.append(label,text);return li;
+    const text=document.createElement('p'); text.textContent=s.displayText ?? phraseById.get(s.phraseId) ?? s.text; li.append(label,text);return li;
   }));
   const job = await api('/api/projects/' + id + '/job');
   if (job) showJob(job); else { busy=false;controls(); }
@@ -57,15 +58,18 @@ $('import-form').addEventListener('submit', async e => {
   finally{busy=false;controls();}
 });
 $('projects').addEventListener('change',()=>load($('projects').value).catch(e=>notice(e.message,true)));
-$('preset').addEventListener('change',()=>api('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({preset:$('preset').value})}).catch(e=>notice(e.message,true)));
+function renderSettings() { return {preset:$('preset').value, transitionSound:$('transition-sound').checked === true}; }
+function saveSettings() { return api('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(renderSettings())}).catch(e=>notice(e.message,true)); }
+$('preset').addEventListener('change',saveSettings);
+$('transition-sound').addEventListener('change',saveSettings);
 $('generate').addEventListener('click',async()=>{
   busy=true;controls();$('result').hidden=true;
-  try{const job=await api('/api/projects/'+projectId+'/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({preset:$('preset').value})});notice('Creating your video. You can leave this window open.');showJob(job);}
+  try{const job=await api('/api/projects/'+projectId+'/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(renderSettings())});notice('Creating your video. You can leave this window open.');showJob(job);}
   catch(error){busy=false;controls();notice(error.message,true);}
 });
 $('cancel').addEventListener('click',async()=>{try{await api('/api/jobs/'+jobId+'/cancel',{method:'POST'});}catch(error){notice(error.message,true);}});
 (async()=>{try{
   const [health,settings]=await Promise.all([api('/api/health'),api('/api/settings')]);
-  ready=health.ready;notice(health.message,!ready);$('preset').value=settings.preset;
+  ready=health.ready;notice(health.message,!ready);$('preset').value=settings.preset; $('transition-sound').checked=settings.transitionSound === true;
   await projects(localStorage.getItem('phrase-studio-project')||'');controls();
 }catch(error){notice(error.message,true);controls();}})();
