@@ -275,8 +275,10 @@ def import_package(package, root):
 
 
 @lru_cache(maxsize=128)
-def font(size):
-    for candidate in [Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Fonts/segoeui.ttf', Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf')]:
+def font(size, bold=False):
+    filename = 'segoeuib.ttf' if bold else 'segoeui.ttf'
+    linux_name = 'DejaVuSans-Bold.ttf' if bold else 'DejaVuSans.ttf'
+    for candidate in [Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Fonts' / filename, Path('/usr/share/fonts/truetype/dejavu') / linux_name]:
         if candidate.exists():
             return ImageFont.truetype(str(candidate), size)
     return ImageFont.load_default(size=size)
@@ -300,6 +302,7 @@ def wrapped(draw, text, f, width):
 
 
 def slide(doc, section, path, width, height):
+    """Native studio cards: readable type, section colours and conversation artwork."""
     text = display_text(doc, section)
     if len(text) > 6000:
         raise ValueError(f"Section {section['id']} has too much text for one slide")
@@ -307,40 +310,80 @@ def slide(doc, section, path, width, height):
     draw = ImageDraw.Draw(image)
     scale = width / 1920
     def pos(n): return round(n * scale)
-    if section['type'] in ('intro', 'title'):
-        for size in range(120, 39, -2):
-            f = font(pos(size))
-            lines = wrapped(draw, text, f, pos(1660))
-            spacing = pos(size * 1.4)
-            if len(lines) * spacing <= pos(650):
+    def box(bounds, fill, radius=0, outline=None, stroke=2):
+        draw.rounded_rectangle(tuple(pos(v) for v in bounds), radius=pos(radius), fill=fill, outline=outline, width=max(1, pos(stroke)))
+    def line(points, fill, stroke=3):
+        draw.line([(pos(x), pos(y)) for x, y in points], fill=fill, width=max(1, pos(stroke)), joint='curve')
+    def label(x, y, value, size, colour, bold=False):
+        draw.text((pos(x), pos(y)), value, font=font(pos(size), bold), fill=colour)
+    def fitted(value, bounds, largest, smallest, colour, centered=False):
+        x, y, w, h = bounds
+        for size in range(largest, smallest - 1, -2):
+            f = font(pos(size), True)
+            lines = wrapped(draw, value, f, pos(w))
+            spacing = pos(size * 1.32)
+            if len(lines) * spacing <= pos(h):
                 break
         else:
-            raise ValueError('Shorten the topic title so it fits the opening slide')
-        y = (height - len(lines) * spacing) // 2
-        for line in lines:
-            x = (width - draw.textlength(line, font=f)) / 2
-            draw.text((x, y), line, font=f, fill=FG)
-            y += spacing
+            raise ValueError(f"Section {section['id']} has too much text for one slide")
+        top = pos(y) + (pos(h) - len(lines) * spacing) // 2
+        for item in lines:
+            left = pos(x) + ((pos(w) - draw.textlength(item, font=f)) / 2 if centered else 0)
+            draw.text((left, top), item, font=f, fill=colour)
+            top += spacing
+    kind = section['type']
+    palette = {'phrase': '#e1b46a', 'meaning': '#8ddacb', 'example': '#a9cafa',
+               'cue': '#f3afa1', 'viewer-turn': '#e1b46a', 'transition': '#8ddacb', 'outro': '#a9cafa'}
+    accent = palette.get(kind, ACCENT)
+    # Decorative shapes live above the practice lane; its background stays solid navy.
+    box((1460, 110, 1870, 815), '#162b3a', 110)
+    box((1530, 160, 1800, 760), '#1c3643', 100)
+    if kind in ('intro', 'title'):
+        # Opening contains topic text only, surrounded by abstract conversation shapes.
+        box((140, 180, 1760, 850), '#223f49', 58)
+        box((116, 156, 1736, 826), '#f4f0e6', 58)
+        box((176, 220, 188, 752), '#62b8a6', 6)
+        fitted(text, (246, 270, 1350, 470), 116, 40, BG, True)
+        box((1570, 110, 1680, 128), ACCENT, 9)
+        box((1710, 110, 1740, 128), '#8ddacb', 9)
         image.save(path)
         return
-    draw.text((pos(130), pos(65)), 'FLUENT ENGLISH FOR YOU', font=font(pos(28)), fill=ACCENT)
+    label(130, 64, 'FLUENT ENGLISH FOR YOU', 26, FG, True)
+    # A bounded window of lesson dots remains legible for lessons of any length.
+    phrases = doc['lesson']['phrases']
+    index = next((i for i, p in enumerate(phrases) if p['id'] == section.get('phraseId')), None)
+    if index is not None:
+        start = max(0, min(index - 5, len(phrases) - 12))
+        shown = phrases[start:start + 12]
+        for i, _ in enumerate(shown):
+            x = 1790 - (len(shown) - 1 - i) * 27
+            box((x - 5, 80, x + 5, 90), accent if start + i <= index else '#3a4c59', 5)
+    heading = {'outro': 'SEE YOU NEXT TIME', 'transition': 'NEXT PHRASE',
+               'viewer-turn': 'YOUR TURN — SAY IT ALOUD!', 'phrase': 'SAY IT WITH ME',
+               'meaning': 'WHAT IT MEANS', 'example': 'IN A CONVERSATION', 'cue': 'GIVE IT A TRY'}[kind]
+    heading_width = draw.textlength(heading, font=font(pos(28), True)) / scale + 58
+    box((130, 190, 130 + heading_width, 253), accent, 31)
+    label(159, 202, heading, 28, BG, True)
+    # Offset card and a narrow coloured spine give the phrase a clear focal point.
+    box((148, 318, 1790, 853), '#28444f', 42)
+    box((130, 300, 1772, 835), '#f4f0e6', 42)
+    box((130, 346, 141, 788), accent, 5)
+    fitted(text, (210, 370, 1478, 390), 88, 26, BG)
+    # Two interlocking speech bubbles: vector artwork, with no external assets.
+    box((1510, 166, 1620, 239), '#294957', 20)
+    line([(1534, 191), (1594, 191)], '#8ddacb', 4)
+    line([(1534, 207), (1574, 207)], '#8ddacb', 4)
+    draw.polygon([(pos(x), pos(y)) for x, y in [(1528, 232), (1528, 256), (1552, 232)]], fill='#294957')
+    box((1635, 202, 1745, 275), accent, 20)
+    for x in (1660, 1690, 1720):
+        box((x-4, 233, x+4, 241), BG, 4)
+    draw.polygon([(pos(x), pos(y)) for x, y in [(1703, 266), (1730, 291), (1730, 266)]], fill=accent)
+    # The timer itself is drawn by FFmpeg at y=910; never add a track or numbers.
     title = doc.get('title', 'Phrase Studio')[:100]
-    heading = {'outro': 'SEE YOU NEXT TIME', 'transition': 'NEXT PHRASE', 'viewer-turn': 'YOUR TURN — SAY IT ALOUD!', 'phrase': 'SAY IT WITH ME', 'meaning': 'WHAT IT MEANS', 'example': 'IN A CONVERSATION', 'cue': 'GIVE IT A TRY'}[section['type']]
-    draw.text((pos(130), pos(210)), heading, font=font(pos(30)), fill=ACCENT)
-    max_width = pos(1660)
-    for size in range(86, 25, -2):
-        f = font(pos(size))
-        lines = wrapped(draw, text, f, max_width)
-        spacing = pos(size * 1.45)
-        if len(lines) * spacing <= pos(490):
-            break
-    else:
-        raise ValueError(f"Section {section['id']} has too much text for one slide")
-    y = pos(340) + max(0, (pos(490) - len(lines) * spacing) // 2)
-    for line in lines:
-        draw.text((pos(130), y), line, font=f, fill=FG)
-        y += spacing
-    draw.text((pos(130), pos(994)), title, font=font(pos(24)), fill='#93a9b9')
+    footer_font = font(pos(23))
+    while title and draw.textlength(title, font=footer_font) > pos(1660):
+        title = title[:-1]
+    label(130, 993, title, 23, '#93a9b9')
     image.save(path)
 
 
@@ -407,7 +450,7 @@ def render(root, output, preset='master', transition_sound='none'):
         if (v['width'], v['height'], v['codec_name'], v['pix_fmt'], v['r_frame_rate']) != (width, height, 'h264', 'yuv420p', '30/1') or a['channels'] != 2 or a['sample_rate'] != '48000' or a['codec_name'] != 'aac' or abs(float(info['format']['duration']) - doc['totalDurationSeconds']) > .15 or abs(float(v['duration']) - float(a['duration'])) > .06:
             raise ValueError('Export validation failed')
         shutil.copyfile(temporary, output)
-        output.with_suffix('.report.json').write_text(json.dumps({'preset': preset, 'renderFlowVersion': 2, 'pacing': doc['pacing'], 'transitionSound': transition_sound, 'durationSeconds': doc['totalDurationSeconds'], 'timeline': doc['timeline'], 'warnings': doc['warnings'], 'streams': info['streams']}, indent=2), encoding='utf-8')
+        output.with_suffix('.report.json').write_text(json.dumps({'preset': preset, 'visualTheme': 'studio-cards-v1', 'renderFlowVersion': 2, 'pacing': doc['pacing'], 'transitionSound': transition_sound, 'durationSeconds': doc['totalDurationSeconds'], 'timeline': doc['timeline'], 'warnings': doc['warnings'], 'streams': info['streams']}, indent=2), encoding='utf-8')
     emit(status='completed', progress=100, message='Your video is ready')
 
 

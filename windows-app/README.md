@@ -57,3 +57,7 @@ After each spoken phrase take, hold its slide in silence for 1 second. After eve
 Enable **Soft whoosh between phrases** for a quiet, locally synthesized transition sound. It is off by default and remembered with video quality. It plays only in the gap between phrases; narration and viewer turns remain clear/silent respectively. Voice normalization happens before effects are mixed, keeping the effect volume consistent. Both preview and master exports use this flow.
 
 Original imports remain unchanged. Existing projects use the updated flow when regenerated; existing MP4 files keep their previous layout. Continuous Voice Memos alignment remains a separate pending feature.
+
+## Studio cards visual theme
+
+New exports use layered cream cards against navy, bold readable phrase text, section-specific gold/teal/blue/coral labels, abstract conversation artwork and a bounded lesson-progress dot row. The opening contains only the topic text. All graphics are drawn locally with the bundled engine; no image downloads or extra setup are needed. Both export sizes use the same design. The single shrinking gold practice line, phrase-only body text, narration, holds and transition sound behaviour are preserved. Regenerate an existing project to use this theme; existing MP4 files are unchanged. Export reports identify the design as `studio-cards-v1`.

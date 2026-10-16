@@ -103,6 +103,13 @@ class EngineTest(unittest.TestCase):
         studio.slide(doc,meaning,a,1280,720)
         studio.slide(doc,{**meaning,'text':'A changed long explanation that must stay audio only.'},b,1280,720)
         self.assertEqual(a.read_bytes(), b.read_bytes())
+        # New cards must retain contrast and leave the complete timer lane clear.
+        for kind in ('phrase', 'meaning', 'example', 'cue', 'viewer-turn', 'outro'):
+            section = next(s for s in doc['timeline'] if s['type'] == kind)
+            studio.slide(doc, section, a, 1920, 1080)
+            with Image.open(a) as image:
+                self.assertEqual(image.getpixel((170, 500)), (244, 240, 230))
+                self.assertEqual(set(image.crop((0, 910, 1920, 917)).getdata()), {(16, 30, 43)})
 
     def test_between_phrase_whoosh_export_and_silent_practice(self):
         fixture = self.base/'two.json'
