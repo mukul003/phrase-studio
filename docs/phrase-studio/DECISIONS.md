@@ -28,3 +28,8 @@
 - Windows build, packaged API and Edge interface checks passed for application commit `e6bebd265f9828db0f2a1d176acf11a9c2f3d362`. See `docs/phrase-studio/WINDOWS_VERIFICATION.md` for the downloadable package and exact evidence/limits. The user's own PC has not been accessed or installed remotely.
 
 - Flow revision, 16 October 2026: topic-only large opening; only the target phrase is displayed during meaning/conversation, example and cue, with each heading retained. Full spoken narration remains in audio. Add 1 second after each phrase take, 0.5 second after other spoken sections, and a separate 1-second NEXT PHRASE transition after viewer practice before the next phrase. Do not extend the viewer timer or transition between repeated takes. Optional soft whoosh is saved with the render preset and defaults off; it never plays over narration or the viewer's turn.
+
+## 16 October 2026 — slide PDF and manual themes
+
+- Generate a PDF automatically after a successful video render. The checkbox defaults on and remembers opt-out, including migration from older settings. Keep one static page per rendered section in exact video order; use the very same rendered images as the video. Provide separate MP4/PDF downloads and restore them with the completed project. PDF errors must preserve the finished video.
+- Read a validated, editable `theme.json` from the application folder for colours, branding, text sizes, card corners and artwork. Snapshot its resolved values in the export report. A full new composition remains a renderer change and packaged-engine rebuild; document that distinction and how to install a new package without losing local projects.
