@@ -13,7 +13,7 @@ class Element {
 }
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 
-async function boot({health=true,scriptTitle='<img src=x onerror=alert(1)>',saved=false,pdf=true}={}) {
+async function boot({health=true,scriptTitle='<img src=x onerror=alert(1)>',saved=false,pdf=true,pdfMode='phrases'}={}) {
   const elements=new Map();const get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
   get('preset').value='master';
   const requests=[];let activeJob=null;let nextTimer;
@@ -21,7 +21,7 @@ async function boot({health=true,scriptTitle='<img src=x onerror=alert(1)>',save
     requests.push({url,options});
     let status=200,data;
     if(url==='/api/health')data={ready:health,message:health?'Ready':'Setup needed'};
-    else if(url==='/api/settings')data={preset:'master',createPdf:pdf};
+    else if(url==='/api/settings')data={preset:'master',createPdf:pdf,pdfMode};
     else if(url==='/api/projects'&&options.method==='POST')data={id:'project1'};
     else if(url==='/api/projects')data=saved||requests.some(r=>r.url==='/api/projects'&&r.options.method==='POST')?[{id:'project1',title:scriptTitle,importedAt:'2026-10-15'}]:[];
     else if(url==='/api/projects/project1')data={title:scriptTitle,lesson:{phrases:[{}]},totalDurationSeconds:10,warnings:[],timeline:[{type:'phrase',startSeconds:0,endSeconds:2,text:scriptTitle}]};
@@ -97,4 +97,18 @@ test('PDF defaults on, downloads beside video and disabled preference reaches re
   await off.get('generate').events.click();
   assert.equal(JSON.parse(off.requests.findLast(r=>r.url.endsWith('/render')).options.body).createPdf,false);
   off.complete();await off.tick();assert.equal(off.get('download-pdf').hidden,true);
+});
+
+
+test('PDF content defaults to phrases, remembers all sections and locks when off',async()=>{
+  const app=await boot({saved:true});
+  assert.equal(app.get('pdf-mode').value,'phrases');
+  app.get('pdf-mode').value='all';await app.get('pdf-mode').events.change();
+  assert.equal(JSON.parse(app.requests.findLast(r=>r.url==='/api/settings'&&r.options.method==='POST').options.body).pdfMode,'all');
+  await app.get('generate').events.click();
+  assert.equal(JSON.parse(app.requests.findLast(r=>r.url.endsWith('/render')).options.body).pdfMode,'all');
+  assert.equal(app.get('pdf-mode').disabled,true);
+  const restored=await boot({saved:true,pdfMode:'all'});assert.equal(restored.get('pdf-mode').value,'all');
+  restored.get('create-pdf').checked=false;await restored.get('create-pdf').events.change();
+  assert.equal(restored.get('pdf-mode').disabled,true);
 });

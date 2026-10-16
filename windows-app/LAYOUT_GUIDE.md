@@ -52,6 +52,10 @@ The source checkout launched through `Start-Windows.cmd` runs the Python rendere
 
 ## Automatic slide PDF
 
-**Create slide PDF** is enabled by default, including when loading older saved settings. Turning it off is remembered. A successful video render generates a matching landscape PDF automatically, one page per rendered section in video order, including opening/outro, transitions, repeated takes and practice slides. It is a static copy of the slide images, without audio or an animated timer. It does not add the spoken explanations/examples to the page.
+**Create slide PDF** is enabled by default, including when loading older saved settings. Turning it off is remembered. A successful video render generates a matching landscape PDF automatically, using the chosen PDF content mode described below. It is a static copy of the slide images, without audio or an animated timer. It does not add the spoken explanations/examples to the page.
 
 The video and PDF are stored together in the local project folder. **Save video** and **Save slide PDF** download them individually. The PDF button remains available when reopening a completed project. If PDF creation fails, the finished video remains available and the app explains the PDF error. Old videos need to be regenerated once to create their PDF.
+
+## Choose PDF content
+
+The remembered **PDF content** selector offers **Phrase slides only** (default) and **All sections**. Phrase slides only includes the opening topic/intro slide, the first SAY IT WITH ME slide for each phrase, and the final outro when present. Repeated takes, meaning, example, cue, practice and transition slides are omitted from this PDF. All sections includes every rendered slide in video order. This selection affects only the PDF; the video retains every section. The selector is disabled while PDF creation is off or rendering is in progress. Older settings without a PDF mode use Phrase slides only. In the CLI, use `--pdf-mode phrases` or `--pdf-mode all`.

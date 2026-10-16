@@ -38,6 +38,8 @@ def main():
             page.locator('#preset').select_option('preview')
             page.get_by_label('Soft whoosh between phrases').check()
             expect(page.get_by_label('Create slide PDF',exact=True)).to_be_checked()
+            expect(page.locator('#pdf-mode')).to_have_value('phrases')
+            page.locator('#pdf-mode').select_option('all')
             page.get_by_role('button',name='Generate video',exact=True).click()
             expect(page.locator('#result')).to_be_visible(timeout=90000)
             expect(page.locator('#video')).to_have_attribute('data-ready','true',timeout=30000)
@@ -50,6 +52,7 @@ def main():
             page.reload()
             expect(page.locator('#title')).to_have_text('Work life')
             expect(page.get_by_label('Soft whoosh between phrases')).to_be_checked()
+            expect(page.locator('#pdf-mode')).to_have_value('all')
             expect(page.locator('#result')).to_be_visible()
             expect(page.get_by_role('link',name='Save slide PDF',exact=True)).to_be_visible()
             assert not errors,errors

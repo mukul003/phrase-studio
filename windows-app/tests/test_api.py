@@ -52,6 +52,7 @@ def main():
                 time.sleep(.2)
         assert health['ready'],health
         assert api('/api/settings')['createPdf'] is True
+        assert api('/api/settings')['pdfMode']=='phrases'
         try:api('/api/settings',b'{"preset":"preview"}',origin='https://example.com')
         except HTTPError as error:assert error.code==403
         else:raise AssertionError('Cross-origin mutation allowed')
@@ -59,6 +60,7 @@ def main():
         assert api('/api/settings')['preset']=='preview'
         assert api('/api/settings')['transitionSound'] is True
         assert api('/api/settings')['createPdf'] is True
+        assert api('/api/settings')['pdfMode']=='phrases'
         fixture=EngineTest('test_text_fitting_and_safe_paths')
         manifest=EngineTest.base/'api-two.json'
         subprocess.run(['node',str(test_engine.APP/'tests/make-session.cjs'),str(manifest),'--two'],check=True)
@@ -75,13 +77,17 @@ def main():
         pdf=api(job['pdfDownload']);assert pdf.startswith(b'%PDF-')
         from pypdf import PdfReader
         import io
-        assert len(PdfReader(io.BytesIO(pdf)).pages)==len(api('/api/projects/'+pid)['timeline'])
+        assert len(PdfReader(io.BytesIO(pdf)).pages)==4
         video=api(job['download'])
         assert b'ftyp' in video[:64]
         assert api('/api/projects/'+pid+'/job')['download']==job['download']
-        api('/api/settings',b'{"preset":"preview","createPdf":false}')
+        api('/api/settings',b'{"preset":"preview","createPdf":false,"pdfMode":"all"}')
         assert api('/api/settings')['createPdf'] is False
-        api('/api/projects/'+pid+'/render',b'{"preset":"preview","createPdf":false}')
+        assert api('/api/settings')['pdfMode']=='all'
+        try:api('/api/settings',b'{"preset":"preview","pdfMode":"bad"}')
+        except HTTPError as error:assert error.code==400
+        else:raise AssertionError('Invalid PDF mode accepted')
+        api('/api/projects/'+pid+'/render',b'{"preset":"preview","createPdf":false,"pdfMode":"all"}')
         off=wait_job(pid);assert off['status']=='completed',off
         assert off['pdfDownload'] is None
         try:api('/api/projects/'+pid+'/pdf/'+off['id'])

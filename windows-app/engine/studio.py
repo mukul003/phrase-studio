@@ -63,6 +63,21 @@ def load_theme(path=None):
         raise ValueError(f'Check theme.json: {error}') from error
 
 
+def pdf_slide_indexes(timeline, mode='phrases'):
+    if mode not in ('all', 'phrases'):
+        raise ValueError('Unknown PDF content option')
+    if mode == 'all':
+        return list(range(len(timeline)))
+    selected, seen = [], set()
+    for index, section in enumerate(timeline):
+        if section['type'] in ('intro', 'title', 'outro'):
+            selected.append(index)
+        elif section['type'] == 'phrase' and section.get('phraseId') not in seen:
+            selected.append(index)
+            seen.add(section.get('phraseId'))
+    return selected
+
+
 def slides_pdf(images, output):
     """Append one page at a time to keep large lessons within bounded memory."""
     if not images:
@@ -452,11 +467,12 @@ def slide(doc, section, path, width, height, theme=None):
     image.save(path)
 
 
-def render(root, output, preset='master', transition_sound='none', create_pdf=True, theme_path=None):
+def render(root, output, preset='master', transition_sound='none', create_pdf=True, theme_path=None, pdf_mode='phrases'):
     if transition_sound not in ('none', 'whoosh'):
         raise ValueError('Unknown transition sound')
     theme = load_theme(theme_path)
     doc = validate(root)
+    pdf_indexes = pdf_slide_indexes(doc['timeline'], pdf_mode)
     metadata = root / 'project.json'
     metadata.write_text(json.dumps(doc, indent=2), encoding='utf-8')
     width, height = (1280, 720) if preset == 'preview' else (1920, 1080)
@@ -526,10 +542,10 @@ def render(root, output, preset='master', transition_sound='none', create_pdf=Tr
         if create_pdf:
             emit(status='rendering', progress=98, message='Creating your slide PDF')
             try:
-                slides_pdf(images, output.with_suffix('.pdf'))
+                slides_pdf([images[i] for i in pdf_indexes], output.with_suffix('.pdf'))
             except Exception as error:
                 pdf_warning = f'Video ready, but PDF could not be created: {error}'
-        output.with_suffix('.report.json').write_text(json.dumps({'preset': preset, 'visualTheme': 'studio-cards-v1', 'theme': theme, 'createPdf': create_pdf, 'pdfWarning': pdf_warning, 'renderFlowVersion': 2, 'pacing': doc['pacing'], 'transitionSound': transition_sound, 'durationSeconds': doc['totalDurationSeconds'], 'timeline': doc['timeline'], 'warnings': doc['warnings'], 'streams': info['streams']}, indent=2), encoding='utf-8')
+        output.with_suffix('.report.json').write_text(json.dumps({'preset': preset, 'visualTheme': 'studio-cards-v1', 'theme': theme, 'createPdf': create_pdf, 'pdfMode': pdf_mode, 'pdfWarning': pdf_warning, 'renderFlowVersion': 2, 'pacing': doc['pacing'], 'transitionSound': transition_sound, 'durationSeconds': doc['totalDurationSeconds'], 'timeline': doc['timeline'], 'warnings': doc['warnings'], 'streams': info['streams']}, indent=2), encoding='utf-8')
     emit(status='completed', progress=100, message=pdf_warning or ('Your video and slide PDF are ready' if create_pdf else 'Your video is ready'))
 
 
@@ -541,6 +557,7 @@ def main():
     parser.add_argument('--output', type=Path)
     parser.add_argument('--preset', choices=['preview', 'master'], default='master')
     parser.add_argument('--transition-sound', choices=['none', 'whoosh'], default='none')
+    parser.add_argument('--pdf-mode', choices=['phrases', 'all'], default='phrases')
     parser.add_argument('--no-pdf', action='store_true')
     parser.add_argument('--theme', type=Path)
     args = parser.parse_args()
@@ -554,7 +571,7 @@ def main():
             doc = import_package(args.input, args.project)
             emit(status='imported', title=doc['title'], warnings=doc['warnings'])
         else:
-            render(args.project, args.output, args.preset, args.transition_sound, not args.no_pdf, args.theme)
+            render(args.project, args.output, args.preset, args.transition_sound, not args.no_pdf, args.theme, args.pdf_mode)
     except Exception as exc:
         emit(status='failed', error=str(exc))
         return 1

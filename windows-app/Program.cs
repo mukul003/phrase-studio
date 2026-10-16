@@ -129,6 +129,7 @@ app.MapGet("/api/settings", () =>
 });
 app.MapPost("/api/settings", (Settings settings) =>
 {
+    if (settings.PdfMode is not ("phrases" or "all")) return Results.BadRequest(new { error = "Unknown PDF content option" });
     if (settings.Preset is not ("master" or "preview")) return Results.BadRequest();
     File.WriteAllText(Path.Combine(data, "settings.json"), JsonSerializer.Serialize(settings, jsonOptions));
     return Results.Ok(settings);
@@ -137,6 +138,7 @@ app.MapPost("/api/settings", (Settings settings) =>
 app.MapPost("/api/projects/{id}/render", async (string id, Settings settings) =>
 {
     if (!ValidId(id) || !File.Exists(Path.Combine(ProjectPath(id), "project.json"))) return Results.NotFound();
+    if (settings.PdfMode is not ("phrases" or "all")) return Results.BadRequest(new { error = "Unknown PDF content option" });
     if (settings.Preset is not ("master" or "preview")) return Results.BadRequest(new { error = "Unknown preset" });
     if (!await gate.WaitAsync(0)) return Results.Conflict(new { error = "A video is rendering. Finish or cancel it first." });
     var job = new RenderJob(Guid.NewGuid().ToString("N"), id, "rendering", 0, "Preparing your video", null);
@@ -146,7 +148,7 @@ app.MapPost("/api/projects/{id}/render", async (string id, Settings settings) =>
         try
         {
             var output = Path.Combine(ProjectPath(id), job.Id + ".mp4");
-            var arguments = new List<string> { "render", "--project", ProjectPath(id), "--output", output, "--preset", settings.Preset, "--transition-sound", settings.TransitionSound ? "whoosh" : "none", "--theme", Path.Combine(app.Environment.ContentRootPath, "theme.json") };
+            var arguments = new List<string> { "render", "--project", ProjectPath(id), "--output", output, "--preset", settings.Preset, "--transition-sound", settings.TransitionSound ? "whoosh" : "none", "--pdf-mode", settings.PdfMode, "--theme", Path.Combine(app.Environment.ContentRootPath, "theme.json") };
             if (!settings.CreatePdf) arguments.Add("--no-pdf");
             await RunEngine(arguments.ToArray(), result =>
             {
@@ -202,5 +204,5 @@ if (Environment.GetEnvironmentVariable("PHRASE_OPEN_BROWSER") == "1")
     app.Lifetime.ApplicationStarted.Register(() => Process.Start(new ProcessStartInfo("http://127.0.0.1:5278") { UseShellExecute = true }));
 app.Run();
 
-record Settings(string Preset, bool TransitionSound = false, bool CreatePdf = true);
+record Settings(string Preset, bool TransitionSound = false, bool CreatePdf = true, string PdfMode = "phrases");
 record RenderJob(string Id, string ProjectId, string Status, int Progress, string Message, string? Download, string? PdfDownload = null);

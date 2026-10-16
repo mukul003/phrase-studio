@@ -48,7 +48,7 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(len([s for s in doc['timeline'] if s['type'] == 'viewer-turn']), 1)
         self.assertTrue((root / 'original-package.zip').is_file())
         output = root / 'result.mp4'
-        studio.render(root, output)
+        studio.render(root, output, pdf_mode='all')
         pdf = PdfReader(output.with_suffix('.pdf'))
         self.assertEqual(len(pdf.pages), len(doc['timeline']))
         self.assertTrue(all(abs(float(p.mediabox.width) / float(p.mediabox.height) - 16/9) < .001 for p in pdf.pages))
@@ -129,8 +129,8 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(doc['timeline'][position-1]['type'],'viewer-turn')
         self.assertEqual(doc['timeline'][position+1]['type'],'phrase')
         output=root/'whoosh.mp4'
-        studio.render(root,output,'preview','whoosh',create_pdf=False)
-        self.assertFalse(output.with_suffix('.pdf').exists())
+        studio.render(root,output,'preview','whoosh')
+        self.assertEqual(len(PdfReader(output.with_suffix('.pdf')).pages),4)
         import array, wave
         audio=root/'whoosh.wav'
         studio.run(['ffmpeg','-v','error','-y','-i',output,'-c:a','pcm_s16le',audio])
@@ -177,6 +177,17 @@ class EngineTest(unittest.TestCase):
         for invalid in ({'background':'bad'},{'phraseMaxSize':1000},{'sectionColors':{'fake':'#112233'}},{'artwork':'yes'}):
             theme_file.write_text(json.dumps(invalid))
             with self.assertRaisesRegex(ValueError,'Check theme.json'):studio.load_theme(theme_file)
+
+    def test_pdf_mode_selects_first_take_per_phrase_and_bookends(self):
+        timeline=[{'type':'intro'}, {'type':'phrase','phraseId':'a'},
+                  {'type':'phrase','phraseId':'a'}, {'type':'meaning','phraseId':'a'},
+                  {'type':'example','phraseId':'a'}, {'type':'cue','phraseId':'a'},
+                  {'type':'viewer-turn','phraseId':'a'}, {'type':'transition','phraseId':'b'},
+                  {'type':'phrase','phraseId':'b'}, {'type':'outro'}]
+        self.assertEqual(studio.pdf_slide_indexes(timeline),[0,1,8,9])
+        self.assertEqual(studio.pdf_slide_indexes(timeline,'all'),list(range(10)))
+        self.assertEqual(studio.pdf_slide_indexes([{'type':'title'},*timeline[1:-1]]),[0,1,8])
+        with self.assertRaisesRegex(ValueError,'Unknown PDF'):studio.pdf_slide_indexes(timeline,'invalid')
 
     def test_rejects_traversal_and_removes_partial_import(self):
         root = self.base / 'unsafe'

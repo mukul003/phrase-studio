@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 let projectId = '', jobId = '', timer, ready = false, busy = false;
 function notice(text, error = false) { $('notice').textContent = text; $('notice').classList.toggle('error', error); }
-function controls() { $('generate').disabled = !ready || busy || !projectId; $('import-button').disabled = !ready || busy; $('projects').disabled = busy; $('preset').disabled = busy; $('transition-sound').disabled = busy; $('create-pdf').disabled = busy; }
+function controls() { $('generate').disabled = !ready || busy || !projectId; $('import-button').disabled = !ready || busy; $('projects').disabled = busy; $('preset').disabled = busy; $('transition-sound').disabled = busy; $('create-pdf').disabled = busy; $('pdf-mode').disabled = busy || !$('create-pdf').checked; }
 async function api(url, options = {}) {
   const response = await fetch(url, {...options, headers: {'X-Phrase-Studio':'local', ...options.headers}});
   if (response.status === 204) return null;
@@ -60,11 +60,12 @@ $('import-form').addEventListener('submit', async e => {
   finally{busy=false;controls();}
 });
 $('projects').addEventListener('change',()=>load($('projects').value).catch(e=>notice(e.message,true)));
-function renderSettings() { return {preset:$('preset').value, transitionSound:$('transition-sound').checked === true, createPdf:$('create-pdf').checked !== false}; }
+function renderSettings() { return {preset:$('preset').value, transitionSound:$('transition-sound').checked === true, createPdf:$('create-pdf').checked !== false, pdfMode:$('pdf-mode').value || 'phrases'}; }
 function saveSettings() { return api('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(renderSettings())}).catch(e=>notice(e.message,true)); }
 $('preset').addEventListener('change',saveSettings);
 $('transition-sound').addEventListener('change',saveSettings);
-$('create-pdf').addEventListener('change',saveSettings);
+$('create-pdf').addEventListener('change',()=>{controls();return saveSettings();});
+$('pdf-mode').addEventListener('change',saveSettings);
 $('generate').addEventListener('click',async()=>{
   busy=true;controls();$('result').hidden=true;
   try{const job=await api('/api/projects/'+projectId+'/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(renderSettings())});notice('Creating your video. You can leave this window open.');showJob(job);}
@@ -73,6 +74,6 @@ $('generate').addEventListener('click',async()=>{
 $('cancel').addEventListener('click',async()=>{try{await api('/api/jobs/'+jobId+'/cancel',{method:'POST'});}catch(error){notice(error.message,true);}});
 (async()=>{try{
   const [health,settings]=await Promise.all([api('/api/health'),api('/api/settings')]);
-  ready=health.ready;notice(health.message,!ready);$('preset').value=settings.preset; $('transition-sound').checked=settings.transitionSound === true; $('create-pdf').checked=settings.createPdf !== false;
+  ready=health.ready;notice(health.message,!ready);$('preset').value=settings.preset; $('transition-sound').checked=settings.transitionSound === true; $('create-pdf').checked=settings.createPdf !== false; $('pdf-mode').value=settings.pdfMode === 'all' ? 'all' : 'phrases';
   await projects(localStorage.getItem('phrase-studio-project')||'');controls();
 }catch(error){notice(error.message,true);controls();}})();

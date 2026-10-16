@@ -64,6 +64,10 @@ New exports use layered cream cards against navy, bold readable phrase text, sec
 
 ## PDF and manual design settings
 
-**Create slide PDF** defaults on and is remembered. After a successful video export the app automatically saves a PDF beside the MP4, with one static page per slide in video order. Both downloads are restored when reopening the project. PDF errors preserve the completed video and display a warning. Turn the option off for video-only exports.
+**Create slide PDF** defaults on and is remembered. After a successful video export the app automatically saves a PDF beside the MP4, with the selected slides in video order. Both downloads are restored when reopening the project. PDF errors preserve the completed video and display a warning. Turn the option off for video-only exports.
 
 Edit `theme.json` in the application folder to change colours, branding, text sizes, card corners or artwork visibility. Changes apply at the next render without rebuilding. Video and PDF use the same theme snapshot. See [LAYOUT_GUIDE.md](LAYOUT_GUIDE.md) for an example, supported values and the workflow for completely replacing the layout. A full renderer replacement requires rebuilding the bundled engine; a `.pptx` template is not imported.
+
+## Choose PDF content
+
+The remembered **PDF content** selector offers **Phrase slides only** (default) and **All sections**. Phrase slides only includes the opening topic/intro slide, the first SAY IT WITH ME slide for each phrase, and the final outro when present. Repeated takes, meaning, example, cue, practice and transition slides are omitted from this PDF. All sections includes every rendered slide in video order. This selection affects only the PDF; the video retains every section. The selector is disabled while PDF creation is off or rendering is in progress. Older settings without a PDF mode use Phrase slides only. In the CLI, use `--pdf-mode phrases` or `--pdf-mode all`.
