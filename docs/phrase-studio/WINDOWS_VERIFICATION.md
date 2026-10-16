@@ -1,9 +1,9 @@
 # Verified build — 16 October 2026
 
-Application source commit: `93940143a623be17635f6ce14889b14dfcc832c8`.
+Application source commit: `0f12e6d361b8a4a7f7911985529b4242afae9e63`.
 
-[Successful Windows build and checks](https://github.com/mukul003/phrase-studio/actions/runs/38853247101).
-[Download Windows x64 package](https://github.com/mukul003/phrase-studio/actions/runs/38853247101/artifacts/12026400281) (GitHub sign-in required).
+[Successful Windows build and checks](https://github.com/mukul003/phrase-studio/actions/runs/38857583468).
+[Download Windows x64 package](https://github.com/mukul003/phrase-studio/actions/runs/38857583468/artifacts/12027439562) (GitHub sign-in required).
 
 Package: PhraseStudio-Windows-x64, approximately 142 MB. Extract the entire archive and run **Start-Phrase-Studio.cmd**. Runtime/media dependencies are bundled. The artifact expires on 15 November 2026; use Actions → Windows video app → Run workflow to recreate it later.
 
@@ -22,3 +22,5 @@ Still requiring acceptance on the user's computer: launch from the downloaded fo
 Continuous Voice Memos/enhanced-audio alignment, optional music, one-take recording, signing/installer and GPU encoding remain follow-up features. The supported path for this build is a completed guided browser recording ZIP from Phase 2.
 
 Flow revision verified in this build: topic-only opening; target-phrase-only bodies with section headings; 1-second holds after phrase takes, 0.5-second holds after other spoken sections, and 1-second transitions between phrase groups. The remembered whoosh checkbox defaults off. Actual exported effects were checked in transition gaps, with silent viewer intervals preserved. API tests exercised the enabled sound option; Edge checked that its preference survived reload.
+
+Visual revision verified: `studio-cards-v1` uses layered cream/navy cards, bold text, section colour accents and locally drawn conversation artwork. Topic titles with an em dash use a separate headline and subtitle. Linux layout checks cover contrast and the unpainted practice-timer lane at full resolution. The real cleaned ten-phrase lesson was rendered at 1080p30: 9,702 frames / 323.4 seconds, with matching audio/video durations, 10 silent practice turns and nine transition effects. AAC audio bytes match the previous cleaned export exactly.
