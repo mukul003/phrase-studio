@@ -51,12 +51,14 @@ def main():
                 if time.monotonic()>deadline:raise
                 time.sleep(.2)
         assert health['ready'],health
+        assert api('/api/settings')['createPdf'] is True
         try:api('/api/settings',b'{"preset":"preview"}',origin='https://example.com')
         except HTTPError as error:assert error.code==403
         else:raise AssertionError('Cross-origin mutation allowed')
         api('/api/settings',b'{"preset":"preview","transitionSound":true}')
         assert api('/api/settings')['preset']=='preview'
         assert api('/api/settings')['transitionSound'] is True
+        assert api('/api/settings')['createPdf'] is True
         fixture=EngineTest('test_text_fitting_and_safe_paths')
         manifest=EngineTest.base/'api-two.json'
         subprocess.run(['node',str(test_engine.APP/'tests/make-session.cjs'),str(manifest),'--two'],check=True)
@@ -69,9 +71,22 @@ def main():
         api('/api/projects/'+pid+'/render',b'{"preset":"preview","transitionSound":true}')
         job=wait_job(pid)
         assert job['status']=='completed',job
+        assert job['pdfDownload'],job
+        pdf=api(job['pdfDownload']);assert pdf.startswith(b'%PDF-')
+        from pypdf import PdfReader
+        import io
+        assert len(PdfReader(io.BytesIO(pdf)).pages)==len(api('/api/projects/'+pid)['timeline'])
         video=api(job['download'])
         assert b'ftyp' in video[:64]
         assert api('/api/projects/'+pid+'/job')['download']==job['download']
+        api('/api/settings',b'{"preset":"preview","createPdf":false}')
+        assert api('/api/settings')['createPdf'] is False
+        api('/api/projects/'+pid+'/render',b'{"preset":"preview","createPdf":false}')
+        off=wait_job(pid);assert off['status']=='completed',off
+        assert off['pdfDownload'] is None
+        try:api('/api/projects/'+pid+'/pdf/'+off['id'])
+        except HTTPError as error:assert error.code==404
+        else:raise AssertionError('PDF generated with option off')
         job=api('/api/projects/'+pid+'/render',b'{"preset":"master"}')
         api('/api/jobs/'+job['id']+'/cancel',b'')
         job=wait_job(pid)

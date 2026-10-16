@@ -8,6 +8,7 @@ import tempfile
 import unittest
 import zipfile
 from PIL import Image
+from pypdf import PdfReader
 
 APP = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('studio', APP / 'engine/studio.py')
@@ -48,6 +49,9 @@ class EngineTest(unittest.TestCase):
         self.assertTrue((root / 'original-package.zip').is_file())
         output = root / 'result.mp4'
         studio.render(root, output)
+        pdf = PdfReader(output.with_suffix('.pdf'))
+        self.assertEqual(len(pdf.pages), len(doc['timeline']))
+        self.assertTrue(all(abs(float(p.mediabox.width) / float(p.mediabox.height) - 16/9) < .001 for p in pdf.pages))
         info = studio.probe(output)
         video = next(s for s in info['streams'] if s['codec_type'] == 'video')
         self.assertEqual((video['width'], video['height']), (1920, 1080))
@@ -125,7 +129,8 @@ class EngineTest(unittest.TestCase):
         self.assertEqual(doc['timeline'][position-1]['type'],'viewer-turn')
         self.assertEqual(doc['timeline'][position+1]['type'],'phrase')
         output=root/'whoosh.mp4'
-        studio.render(root,output,'preview','whoosh')
+        studio.render(root,output,'preview','whoosh',create_pdf=False)
+        self.assertFalse(output.with_suffix('.pdf').exists())
         import array, wave
         audio=root/'whoosh.wav'
         studio.run(['ffmpeg','-v','error','-y','-i',output,'-c:a','pcm_s16le',audio])
@@ -144,6 +149,28 @@ class EngineTest(unittest.TestCase):
         plan=studio.build_render_plan(no_intro)
         self.assertEqual(plan[0]['type'],'title')
         self.assertEqual(plan[0]['displayText'],source['title'])
+
+    def test_editable_theme_and_pdf_page_order(self):
+        theme_file = self.base/'theme.json'
+        theme_file.write_text(json.dumps({'card':'#ffffff','ink':'#112233','artwork':False,'phraseMaxSize':70}))
+        theme=studio.load_theme(theme_file)
+        doc=studio.import_package(self.package('theme'),self.base/'theme')
+        section=next(s for s in doc['timeline'] if s['type']=='phrase')
+        png=self.base/'custom-theme.png'
+        studio.slide(doc,section,png,1920,1080,theme)
+        with Image.open(png) as image:self.assertEqual(image.getpixel((170,500)),(255,255,255))
+        # Distinct page dimensions prove that the PDF retains source order.
+        first,second=self.base/'first.png',self.base/'second.png'
+        Image.new('RGB',(400,200),'red').save(first)
+        Image.new('RGB',(200,400),'blue').save(second)
+        output=self.base/'ordered.pdf';studio.slides_pdf([first,second],output)
+        pages=PdfReader(output).pages
+        self.assertEqual(len(pages),2)
+        self.assertGreater(float(pages[0].mediabox.width),float(pages[0].mediabox.height))
+        self.assertLess(float(pages[1].mediabox.width),float(pages[1].mediabox.height))
+        for invalid in ({'background':'bad'},{'phraseMaxSize':1000},{'sectionColors':{'fake':'#112233'}},{'artwork':'yes'}):
+            theme_file.write_text(json.dumps(invalid))
+            with self.assertRaisesRegex(ValueError,'Check theme.json'):studio.load_theme(theme_file)
 
     def test_rejects_traversal_and_removes_partial_import(self):
         root = self.base / 'unsafe'

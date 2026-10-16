@@ -28,7 +28,7 @@ jobs:
           $ffmpeg = Get-ChildItem C:\ProgramData\chocolatey\lib\ffmpeg -Filter ffmpeg.exe -Recurse | Select-Object -First 1
           if (!$ffmpeg) { throw 'FFmpeg installation failed' }
           $ffmpeg.Directory.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          python -m pip install -r windows-app/engine/requirements.txt pyinstaller playwright
+          python -m pip install -r windows-app/engine/requirements.txt -r windows-app/tests/requirements.txt pyinstaller playwright
       - name: Build Windows host
         run: dotnet publish windows-app/PhraseStudio.csproj -c Release -r win-x64 --self-contained true -o artifacts/PhraseStudio
       - name: Recorder regression tests
@@ -45,6 +45,7 @@ jobs:
           Copy-Item (Get-Command ffprobe.exe).Source artifacts/PhraseStudio/ffprobe.exe
           Copy-Item windows-app/Start-Portable.cmd artifacts/PhraseStudio/Start-Phrase-Studio.cmd
           Copy-Item windows-app/README.md artifacts/PhraseStudio/README.md
+          Copy-Item windows-app/LAYOUT_GUIDE.md artifacts/PhraseStudio/LAYOUT_GUIDE.md
           Copy-Item windows-app/THIRD_PARTY.md artifacts/PhraseStudio/THIRD_PARTY.md
           ffmpeg -version | Out-File artifacts/PhraseStudio/FFmpeg-build.txt
           ffmpeg -L 2>&1 | Out-File artifacts/PhraseStudio/FFmpeg-license.txt

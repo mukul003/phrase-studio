@@ -6,6 +6,7 @@
     <PublishSingleFile>false</PublishSingleFile>
   </PropertyGroup>
   <ItemGroup>
+    <Content Include="theme.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="engine/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

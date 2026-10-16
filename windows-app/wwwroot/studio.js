@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 let projectId = '', jobId = '', timer, ready = false, busy = false;
 function notice(text, error = false) { $('notice').textContent = text; $('notice').classList.toggle('error', error); }
-function controls() { $('generate').disabled = !ready || busy || !projectId; $('import-button').disabled = !ready || busy; $('projects').disabled = busy; $('preset').disabled = busy; $('transition-sound').disabled = busy; }
+function controls() { $('generate').disabled = !ready || busy || !projectId; $('import-button').disabled = !ready || busy; $('projects').disabled = busy; $('preset').disabled = busy; $('transition-sound').disabled = busy; $('create-pdf').disabled = busy; }
 async function api(url, options = {}) {
   const response = await fetch(url, {...options, headers: {'X-Phrase-Studio':'local', ...options.headers}});
   if (response.status === 204) return null;
@@ -17,7 +17,7 @@ async function projects(selected = '') {
   if (list.some(p => p.id === selected)) { $('projects').value = selected; await load(selected); }
 }
 async function load(id) {
-  clearTimeout(timer); projectId = id; jobId = ''; $('result').hidden = true; $('job').hidden = true;
+  clearTimeout(timer); projectId = id; jobId = ''; $('result').hidden = true; $('download-pdf').hidden = true; $('job').hidden = true;
   $('project').hidden = !id; $('empty').hidden = !!id;
   if (!id) { controls(); return; }
   localStorage.setItem('phrase-studio-project', id);
@@ -40,7 +40,9 @@ function showJob(job) {
   $('cancel').hidden=!busy;controls();
   if (job.status==='completed') {
     $('result').hidden=false; $('video').dataset.ready='false'; $('video').src=job.download; $('download').href=job.download;
-    notice('Your video is ready. Play it here, then save it.');
+    $('download-pdf').hidden=!job.pdfDownload;
+    if(job.pdfDownload) $('download-pdf').href=job.pdfDownload;
+    notice(job.message || 'Your video is ready. Play it here, then save it.');
   } else if (job.status==='failed' || job.status==='cancelled') notice(job.message, job.status==='failed');
   if (busy) timer=setTimeout(poll,1200);
 }
@@ -58,10 +60,11 @@ $('import-form').addEventListener('submit', async e => {
   finally{busy=false;controls();}
 });
 $('projects').addEventListener('change',()=>load($('projects').value).catch(e=>notice(e.message,true)));
-function renderSettings() { return {preset:$('preset').value, transitionSound:$('transition-sound').checked === true}; }
+function renderSettings() { return {preset:$('preset').value, transitionSound:$('transition-sound').checked === true, createPdf:$('create-pdf').checked !== false}; }
 function saveSettings() { return api('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(renderSettings())}).catch(e=>notice(e.message,true)); }
 $('preset').addEventListener('change',saveSettings);
 $('transition-sound').addEventListener('change',saveSettings);
+$('create-pdf').addEventListener('change',saveSettings);
 $('generate').addEventListener('click',async()=>{
   busy=true;controls();$('result').hidden=true;
   try{const job=await api('/api/projects/'+projectId+'/render',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(renderSettings())});notice('Creating your video. You can leave this window open.');showJob(job);}
@@ -70,6 +73,6 @@ $('generate').addEventListener('click',async()=>{
 $('cancel').addEventListener('click',async()=>{try{await api('/api/jobs/'+jobId+'/cancel',{method:'POST'});}catch(error){notice(error.message,true);}});
 (async()=>{try{
   const [health,settings]=await Promise.all([api('/api/health'),api('/api/settings')]);
-  ready=health.ready;notice(health.message,!ready);$('preset').value=settings.preset; $('transition-sound').checked=settings.transitionSound === true;
+  ready=health.ready;notice(health.message,!ready);$('preset').value=settings.preset; $('transition-sound').checked=settings.transitionSound === true; $('create-pdf').checked=settings.createPdf !== false;
   await projects(localStorage.getItem('phrase-studio-project')||'');controls();
 }catch(error){notice(error.message,true);controls();}})();

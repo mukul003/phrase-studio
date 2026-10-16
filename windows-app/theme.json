@@ -1,0 +1,22 @@
+{
+  "background": "#101e2b",
+  "foreground": "#f4f0e6",
+  "card": "#f4f0e6",
+  "ink": "#101e2b",
+  "accent": "#e1b46a",
+  "muted": "#93a9b9",
+  "brand": "FLUENT ENGLISH FOR YOU",
+  "phraseMaxSize": 88,
+  "titleMaxSize": 116,
+  "cornerRadius": 42,
+  "artwork": true,
+  "sectionColors": {
+    "phrase": "#e1b46a",
+    "meaning": "#8ddacb",
+    "example": "#a9cafa",
+    "cue": "#f3afa1",
+    "viewer-turn": "#e1b46a",
+    "transition": "#8ddacb",
+    "outro": "#a9cafa"
+  }
+}

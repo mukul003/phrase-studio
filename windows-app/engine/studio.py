@@ -23,6 +23,62 @@ FG = '#f4f0e6'
 ACCENT = '#e1b46a'
 
 
+DEFAULT_THEME = {
+    'background': BG, 'foreground': FG, 'card': '#f4f0e6', 'ink': BG,
+    'accent': ACCENT, 'muted': '#93a9b9', 'brand': 'FLUENT ENGLISH FOR YOU',
+    'phraseMaxSize': 88, 'titleMaxSize': 116, 'cornerRadius': 42,
+    'artwork': True,
+    'sectionColors': {'phrase': '#e1b46a', 'meaning': '#8ddacb', 'example': '#a9cafa',
+                      'cue': '#f3afa1', 'viewer-turn': '#e1b46a', 'transition': '#8ddacb', 'outro': '#a9cafa'}
+}
+
+
+def load_theme(path=None):
+    theme = copy.deepcopy(DEFAULT_THEME)
+    if path is None or not path.exists():
+        return theme
+    try:
+        custom = json.loads(path.read_text(encoding='utf-8-sig'))
+        if not isinstance(custom, dict) or set(custom) - set(theme):
+            raise ValueError('unknown theme fields')
+        for key, value in custom.items():
+            if key == 'sectionColors':
+                if not isinstance(value, dict) or set(value) - set(theme[key]):
+                    raise ValueError('unknown section colours')
+                theme[key].update(value)
+            else:
+                theme[key] = value
+        for key in ('background', 'foreground', 'card', 'ink', 'accent', 'muted'):
+            if not isinstance(theme[key], str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', theme[key]):
+                raise ValueError(key + ' must be a #RRGGBB colour')
+        if any(not isinstance(v, str) or not re.fullmatch(r'#[0-9a-fA-F]{6}', v) for v in theme['sectionColors'].values()):
+            raise ValueError('section colours must use #RRGGBB')
+        for key, low, high in [('phraseMaxSize', 26, 110), ('titleMaxSize', 40, 140), ('cornerRadius', 0, 80)]:
+            if type(theme[key]) is not int or not low <= theme[key] <= high:
+                raise ValueError(f'{key} must be an integer from {low} to {high}')
+        if type(theme['artwork']) is not bool or not isinstance(theme['brand'], str) or len(theme['brand']) > 45:
+            raise ValueError('artwork must be true/false and brand at most 45 characters')
+        return theme
+    except (ValueError, TypeError) as error:
+        raise ValueError(f'Check theme.json: {error}') from error
+
+
+def slides_pdf(images, output):
+    """Append one page at a time to keep large lessons within bounded memory."""
+    if not images:
+        raise ValueError('No slides available for PDF')
+    temporary = output.with_suffix('.pdf.tmp')
+    try:
+        for index, path in enumerate(images):
+            with Image.open(path) as source:
+                with source.convert('RGB') as page:
+                    page.save(temporary, format='PDF', resolution=144, append=index > 0,
+                              title='Phrase Studio lesson slides')
+        temporary.replace(output)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def emit(**value):
     print(json.dumps(value), flush=True)
 
@@ -301,12 +357,14 @@ def wrapped(draw, text, f, width):
     return lines
 
 
-def slide(doc, section, path, width, height):
+def slide(doc, section, path, width, height, theme=None):
     """Native studio cards: readable type, section colours and conversation artwork."""
+    theme = theme or DEFAULT_THEME
+    background, foreground, ink = theme['background'], theme['foreground'], theme['ink']
     text = display_text(doc, section)
     if len(text) > 6000:
         raise ValueError(f"Section {section['id']} has too much text for one slide")
-    image = Image.new('RGB', (width, height), BG)
+    image = Image.new('RGB', (width, height), background)
     draw = ImageDraw.Draw(image)
     scale = width / 1920
     def pos(n): return round(n * scale)
@@ -332,29 +390,29 @@ def slide(doc, section, path, width, height):
             draw.text((left, top), item, font=f, fill=colour)
             top += spacing
     kind = section['type']
-    palette = {'phrase': '#e1b46a', 'meaning': '#8ddacb', 'example': '#a9cafa',
-               'cue': '#f3afa1', 'viewer-turn': '#e1b46a', 'transition': '#8ddacb', 'outro': '#a9cafa'}
-    accent = palette.get(kind, ACCENT)
+    palette = theme['sectionColors']
+    accent = palette.get(kind, theme['accent'])
     # Decorative shapes live above the practice lane; its background stays solid navy.
-    box((1460, 110, 1870, 815), '#162b3a', 110)
-    box((1530, 160, 1800, 760), '#1c3643', 100)
+    if theme['artwork']:
+        box((1460, 110, 1870, 815), '#162b3a', 110)
+        box((1530, 160, 1800, 760), '#1c3643', 100)
     if kind in ('intro', 'title'):
         # Opening contains topic text only, surrounded by abstract conversation shapes.
         box((140, 180, 1760, 850), '#223f49', 58)
-        box((116, 156, 1736, 826), '#f4f0e6', 58)
+        box((116, 156, 1736, 826), theme['card'], 58)
         box((176, 220, 188, 752), '#62b8a6', 6)
         title_parts = text.split(' — ', 1)
         if len(title_parts) == 2 and all(title_parts):
-            fitted(title_parts[0], (246, 285, 1350, 260), 116, 40, BG, True)
+            fitted(title_parts[0], (246, 285, 1350, 260), theme['titleMaxSize'], 40, ink, True)
             box((846, 572, 1006, 580), '#62b8a6', 4)
             fitted(title_parts[1], (286, 620, 1270, 115), 52, 32, '#375e67', True)
         else:
-            fitted(text, (246, 270, 1350, 470), 116, 40, BG, True)
-        box((1570, 110, 1680, 128), ACCENT, 9)
+            fitted(text, (246, 270, 1350, 470), theme['titleMaxSize'], 40, ink, True)
+        box((1570, 110, 1680, 128), theme['accent'], 9)
         box((1710, 110, 1740, 128), '#8ddacb', 9)
         image.save(path)
         return
-    label(130, 64, 'FLUENT ENGLISH FOR YOU', 26, FG, True)
+    label(130, 64, theme['brand'], 26, foreground, True)
     # A bounded window of lesson dots remains legible for lessons of any length.
     phrases = doc['lesson']['phrases']
     index = next((i for i, p in enumerate(phrases) if p['id'] == section.get('phraseId')), None)
@@ -369,33 +427,35 @@ def slide(doc, section, path, width, height):
                'meaning': 'WHAT IT MEANS', 'example': 'IN A CONVERSATION', 'cue': 'GIVE IT A TRY'}[kind]
     heading_width = draw.textlength(heading, font=font(pos(28), True)) / scale + 58
     box((130, 190, 130 + heading_width, 253), accent, 31)
-    label(159, 202, heading, 28, BG, True)
+    label(159, 202, heading, 28, ink, True)
     # Offset card and a narrow coloured spine give the phrase a clear focal point.
-    box((148, 318, 1790, 853), '#28444f', 42)
-    box((130, 300, 1772, 835), '#f4f0e6', 42)
+    box((148, 318, 1790, 853), '#28444f', theme['cornerRadius'])
+    box((130, 300, 1772, 835), theme['card'], theme['cornerRadius'])
     box((130, 346, 141, 788), accent, 5)
-    fitted(text, (210, 370, 1478, 390), 88, 26, BG)
+    fitted(text, (210, 370, 1478, 390), theme['phraseMaxSize'], 26, ink)
     # Two interlocking speech bubbles: vector artwork, with no external assets.
-    box((1510, 166, 1620, 239), '#294957', 20)
-    line([(1534, 191), (1594, 191)], '#8ddacb', 4)
-    line([(1534, 207), (1574, 207)], '#8ddacb', 4)
-    draw.polygon([(pos(x), pos(y)) for x, y in [(1528, 232), (1528, 256), (1552, 232)]], fill='#294957')
-    box((1635, 202, 1745, 275), accent, 20)
-    for x in (1660, 1690, 1720):
-        box((x-4, 233, x+4, 241), BG, 4)
-    draw.polygon([(pos(x), pos(y)) for x, y in [(1703, 266), (1730, 291), (1730, 266)]], fill=accent)
+    if theme['artwork']:
+        box((1510, 166, 1620, 239), '#294957', 20)
+        line([(1534, 191), (1594, 191)], '#8ddacb', 4)
+        line([(1534, 207), (1574, 207)], '#8ddacb', 4)
+        draw.polygon([(pos(x), pos(y)) for x, y in [(1528, 232), (1528, 256), (1552, 232)]], fill='#294957')
+        box((1635, 202, 1745, 275), accent, 20)
+        for x in (1660, 1690, 1720):
+            box((x-4, 233, x+4, 241), ink, 4)
+        draw.polygon([(pos(x), pos(y)) for x, y in [(1703, 266), (1730, 291), (1730, 266)]], fill=accent)
     # The timer itself is drawn by FFmpeg at y=910; never add a track or numbers.
     title = doc.get('title', 'Phrase Studio')[:100]
     footer_font = font(pos(23))
     while title and draw.textlength(title, font=footer_font) > pos(1660):
         title = title[:-1]
-    label(130, 993, title, 23, '#93a9b9')
+    label(130, 993, title, 23, theme['muted'])
     image.save(path)
 
 
-def render(root, output, preset='master', transition_sound='none'):
+def render(root, output, preset='master', transition_sound='none', create_pdf=True, theme_path=None):
     if transition_sound not in ('none', 'whoosh'):
         raise ValueError('Unknown transition sound')
+    theme = load_theme(theme_path)
     doc = validate(root)
     metadata = root / 'project.json'
     metadata.write_text(json.dumps(doc, indent=2), encoding='utf-8')
@@ -405,6 +465,7 @@ def render(root, output, preset='master', transition_sound='none'):
         work = Path(tmp)
         videos = []
         audios = []
+        images = []
         for index, section in enumerate(doc['timeline']):
             emit(status='rendering', progress=round(index / len(doc['timeline']) * 90), message=f"{index + 1}/{len(doc['timeline'])} · {section['type']}")
             frames = section['frames']
@@ -412,12 +473,13 @@ def render(root, output, preset='master', transition_sound='none'):
             png = work / f'{index}.png'
             video = work / f'{index}.mp4'
             audio = work / f'{index}.wav'
-            slide(doc, section, png, width, height)
+            slide(doc, section, png, width, height, theme)
+            images.append(png)
             args = ['ffmpeg', '-v', 'error', '-y', '-loop', '1', '-framerate', FPS, '-i', png]
             if section['type'] == 'viewer-turn':
                 x, y, line_width = round(130 * width / 1920), round(910 * height / 1080), round(1660 * width / 1920)
                 # A moving colored overlay, masked at the left edge. No background track.
-                args += ['-f', 'lavfi', '-i', f'color=c={ACCENT}:s={line_width}x6:r={FPS}', '-filter_complex', f"[0:v][1:v]overlay=x='{x}-{line_width}*n/{max(1, frames - 1)}':y={y}:shortest=1,drawbox=x=0:y={y}:w={x}:h=6:color={BG}:t=fill[v]", '-map', '[v]']
+                args += ['-f', 'lavfi', '-i', f'color=c={theme["accent"]}:s={line_width}x6:r={FPS}', '-filter_complex', f"[0:v][1:v]overlay=x='{x}-{line_width}*n/{max(1, frames - 1)}':y={y}:shortest=1,drawbox=x=0:y={y}:w={x}:h=6:color={theme['background']}:t=fill[v]", '-map', '[v]']
                 run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', seconds, '-c:a', 'pcm_s16le', audio])
             elif section['type'] in ('transition', 'title'):
                 run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo', '-t', seconds, '-c:a', 'pcm_s16le', audio])
@@ -456,8 +518,15 @@ def render(root, output, preset='master', transition_sound='none'):
         if (v['width'], v['height'], v['codec_name'], v['pix_fmt'], v['r_frame_rate']) != (width, height, 'h264', 'yuv420p', '30/1') or a['channels'] != 2 or a['sample_rate'] != '48000' or a['codec_name'] != 'aac' or abs(float(info['format']['duration']) - doc['totalDurationSeconds']) > .15 or abs(float(v['duration']) - float(a['duration'])) > .06:
             raise ValueError('Export validation failed')
         shutil.copyfile(temporary, output)
-        output.with_suffix('.report.json').write_text(json.dumps({'preset': preset, 'visualTheme': 'studio-cards-v1', 'renderFlowVersion': 2, 'pacing': doc['pacing'], 'transitionSound': transition_sound, 'durationSeconds': doc['totalDurationSeconds'], 'timeline': doc['timeline'], 'warnings': doc['warnings'], 'streams': info['streams']}, indent=2), encoding='utf-8')
-    emit(status='completed', progress=100, message='Your video is ready')
+        pdf_warning = None
+        if create_pdf:
+            emit(status='rendering', progress=98, message='Creating your slide PDF')
+            try:
+                slides_pdf(images, output.with_suffix('.pdf'))
+            except Exception as error:
+                pdf_warning = f'Video ready, but PDF could not be created: {error}'
+        output.with_suffix('.report.json').write_text(json.dumps({'preset': preset, 'visualTheme': 'studio-cards-v1', 'theme': theme, 'createPdf': create_pdf, 'pdfWarning': pdf_warning, 'renderFlowVersion': 2, 'pacing': doc['pacing'], 'transitionSound': transition_sound, 'durationSeconds': doc['totalDurationSeconds'], 'timeline': doc['timeline'], 'warnings': doc['warnings'], 'streams': info['streams']}, indent=2), encoding='utf-8')
+    emit(status='completed', progress=100, message=pdf_warning or ('Your video and slide PDF are ready' if create_pdf else 'Your video is ready'))
 
 
 def main():
@@ -468,6 +537,8 @@ def main():
     parser.add_argument('--output', type=Path)
     parser.add_argument('--preset', choices=['preview', 'master'], default='master')
     parser.add_argument('--transition-sound', choices=['none', 'whoosh'], default='none')
+    parser.add_argument('--no-pdf', action='store_true')
+    parser.add_argument('--theme', type=Path)
     args = parser.parse_args()
     try:
         if args.command == 'health':
@@ -479,7 +550,7 @@ def main():
             doc = import_package(args.input, args.project)
             emit(status='imported', title=doc['title'], warnings=doc['warnings'])
         else:
-            render(args.project, args.output, args.preset, args.transition_sound)
+            render(args.project, args.output, args.preset, args.transition_sound, not args.no_pdf, args.theme)
     except Exception as exc:
         emit(status='failed', error=str(exc))
         return 1

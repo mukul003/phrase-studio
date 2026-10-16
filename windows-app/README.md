@@ -41,7 +41,7 @@ From the repository root:
 
 ```
 node --test tests/*.test.cjs
-python -m pip install -r windows-app/engine/requirements.txt
+python -m pip install -r windows-app/engine/requirements.txt -r windows-app/tests/requirements.txt
 python -m unittest discover -s windows-app/tests -v
 dotnet build windows-app/PhraseStudio.csproj
 ```
@@ -61,3 +61,9 @@ Original imports remain unchanged. Existing projects use the updated flow when r
 ## Studio cards visual theme
 
 New exports use layered cream cards against navy, bold readable phrase text, section-specific gold/teal/blue/coral labels, abstract conversation artwork and a bounded lesson-progress dot row. The opening contains only the topic text. All graphics are drawn locally with the bundled engine; no image downloads or extra setup are needed. Both export sizes use the same design. The single shrinking gold practice line, phrase-only body text, narration, holds and transition sound behaviour are preserved. Regenerate an existing project to use this theme; existing MP4 files are unchanged. Export reports identify the design as `studio-cards-v1`.
+
+## PDF and manual design settings
+
+**Create slide PDF** defaults on and is remembered. After a successful video export the app automatically saves a PDF beside the MP4, with one static page per slide in video order. Both downloads are restored when reopening the project. PDF errors preserve the completed video and display a warning. Turn the option off for video-only exports.
+
+Edit `theme.json` in the application folder to change colours, branding, text sizes, card corners or artwork visibility. Changes apply at the next render without rebuilding. Video and PDF use the same theme snapshot. See [LAYOUT_GUIDE.md](LAYOUT_GUIDE.md) for an example, supported values and the workflow for completely replacing the layout. A full renderer replacement requires rebuilding the bundled engine; a `.pptx` template is not imported.

@@ -146,7 +146,9 @@ app.MapPost("/api/projects/{id}/render", async (string id, Settings settings) =>
         try
         {
             var output = Path.Combine(ProjectPath(id), job.Id + ".mp4");
-            await RunEngine(["render", "--project", ProjectPath(id), "--output", output, "--preset", settings.Preset, "--transition-sound", settings.TransitionSound ? "whoosh" : "none"], result =>
+            var arguments = new List<string> { "render", "--project", ProjectPath(id), "--output", output, "--preset", settings.Preset, "--transition-sound", settings.TransitionSound ? "whoosh" : "none", "--theme", Path.Combine(app.Environment.ContentRootPath, "theme.json") };
+            if (!settings.CreatePdf) arguments.Add("--no-pdf");
+            await RunEngine(arguments.ToArray(), result =>
             {
                 if (result.TryGetProperty("progress", out var p))
                 {
@@ -154,7 +156,7 @@ app.MapPost("/api/projects/{id}/render", async (string id, Settings settings) =>
                     SaveJob(job);
                 }
             }, job.Id);
-            job = job with { Status = "completed", Progress = 100, Message = "Your video is ready", Download = $"/api/projects/{id}/video/{job.Id}" };
+            job = job with { Status = "completed", Progress = 100, Message = settings.CreatePdf ? (File.Exists(Path.ChangeExtension(output, ".pdf")) ? "Your video and slide PDF are ready" : job.Message) : "Your video is ready", Download = $"/api/projects/{id}/video/{job.Id}", PdfDownload = settings.CreatePdf && File.Exists(Path.ChangeExtension(output, ".pdf")) ? $"/api/projects/{id}/pdf/{job.Id}" : null };
         }
         catch (Exception e) { job = job with { Status = cancelled.ContainsKey(job.Id) ? "cancelled" : "failed", Message = cancelled.ContainsKey(job.Id) ? "Rendering cancelled. Your recordings are safe." : e.Message }; }
         finally { SaveJob(job); gate.Release(); }
@@ -186,6 +188,12 @@ app.MapGet("/api/projects/{id}/video/{jobId}", (string id, string jobId) =>
     var path = Path.Combine(ProjectPath(id), jobId + ".mp4");
     return File.Exists(path) ? Results.File(path, "video/mp4", fileDownloadName: "phrase-studio.mp4", enableRangeProcessing: true) : Results.NotFound();
 });
+app.MapGet("/api/projects/{id}/pdf/{jobId}", (string id, string jobId) =>
+{
+    if (!ValidId(id) || !ValidId(jobId)) return Results.NotFound();
+    var path = Path.Combine(ProjectPath(id), jobId + ".pdf");
+    return File.Exists(path) ? Results.File(path, "application/pdf", fileDownloadName: "phrase-studio-slides.pdf") : Results.NotFound();
+});
 app.Lifetime.ApplicationStopping.Register(() =>
 {
     foreach (var p in running.Values) { try { p.Kill(entireProcessTree: true); } catch (InvalidOperationException) { } }
@@ -194,5 +202,5 @@ if (Environment.GetEnvironmentVariable("PHRASE_OPEN_BROWSER") == "1")
     app.Lifetime.ApplicationStarted.Register(() => Process.Start(new ProcessStartInfo("http://127.0.0.1:5278") { UseShellExecute = true }));
 app.Run();
 
-record Settings(string Preset, bool TransitionSound = false);
-record RenderJob(string Id, string ProjectId, string Status, int Progress, string Message, string? Download);
+record Settings(string Preset, bool TransitionSound = false, bool CreatePdf = true);
+record RenderJob(string Id, string ProjectId, string Status, int Progress, string Message, string? Download, string? PdfDownload = null);

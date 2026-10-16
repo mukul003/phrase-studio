@@ -37,16 +37,21 @@ def main():
             expect(page.locator('#title')).to_have_text('Work life',timeout=30000)
             page.locator('#preset').select_option('preview')
             page.get_by_label('Soft whoosh between phrases').check()
+            expect(page.get_by_label('Create slide PDF',exact=True)).to_be_checked()
             page.get_by_role('button',name='Generate video',exact=True).click()
             expect(page.locator('#result')).to_be_visible(timeout=90000)
             expect(page.locator('#video')).to_have_attribute('data-ready','true',timeout=30000)
             with page.expect_download() as downloaded:
                 page.get_by_role('link',name='Save video',exact=True).click()
             assert downloaded.value.suggested_filename.endswith('.mp4')
+            with page.expect_download() as slides:
+                page.get_by_role('link',name='Save slide PDF',exact=True).click()
+            assert slides.value.suggested_filename.endswith('.pdf')
             page.reload()
             expect(page.locator('#title')).to_have_text('Work life')
             expect(page.get_by_label('Soft whoosh between phrases')).to_be_checked()
             expect(page.locator('#result')).to_be_visible()
+            expect(page.get_by_role('link',name='Save slide PDF',exact=True)).to_be_visible()
             assert not errors,errors
             target=Path('artifacts/ui-smoke.png');target.parent.mkdir(parents=True,exist_ok=True)
             page.screenshot(path=str(target),full_page=True)

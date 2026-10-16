@@ -13,7 +13,7 @@ class Element {
 }
 const flush=()=>new Promise(resolve=>setImmediate(resolve));
 
-async function boot({health=true,scriptTitle='<img src=x onerror=alert(1)>',saved=false}={}) {
+async function boot({health=true,scriptTitle='<img src=x onerror=alert(1)>',saved=false,pdf=true}={}) {
   const elements=new Map();const get=id=>{if(!elements.has(id))elements.set(id,new Element());return elements.get(id);};
   get('preset').value='master';
   const requests=[];let activeJob=null;let nextTimer;
@@ -21,7 +21,7 @@ async function boot({health=true,scriptTitle='<img src=x onerror=alert(1)>',save
     requests.push({url,options});
     let status=200,data;
     if(url==='/api/health')data={ready:health,message:health?'Ready':'Setup needed'};
-    else if(url==='/api/settings')data={preset:'master'};
+    else if(url==='/api/settings')data={preset:'master',createPdf:pdf};
     else if(url==='/api/projects'&&options.method==='POST')data={id:'project1'};
     else if(url==='/api/projects')data=saved||requests.some(r=>r.url==='/api/projects'&&r.options.method==='POST')?[{id:'project1',title:scriptTitle,importedAt:'2026-10-15'}]:[];
     else if(url==='/api/projects/project1')data={title:scriptTitle,lesson:{phrases:[{}]},totalDurationSeconds:10,warnings:[],timeline:[{type:'phrase',startSeconds:0,endSeconds:2,text:scriptTitle}]};
@@ -35,7 +35,7 @@ async function boot({health=true,scriptTitle='<img src=x onerror=alert(1)>',save
   const context={document:{getElementById:get,createElement:()=>new Element()},fetch:routes,Option:function(text,value){this.textContent=text;this.value=value;},localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},FormData:class{append(){}},setTimeout:fn=>{nextTimer=fn;return 1;},clearTimeout:()=>{},console};
   vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../wwwroot/studio.js'),'utf8'),context);
   await flush();await flush();
-  return {get,requests,tick:async()=>{await nextTimer();await flush();},complete:()=>{activeJob={id:'job1',status:'completed',progress:100,message:'Ready',download:'/video.mp4'};}};
+  return {get,requests,tick:async()=>{await nextTimer();await flush();},complete:()=>{activeJob={id:'job1',status:'completed',progress:100,message:'Ready',download:'/video.mp4',pdfDownload:pdf?'/slides.pdf':null};}};
 }
 
 test('import one package, display untrusted text safely, generate, play and download',async()=>{
@@ -80,4 +80,21 @@ test('whoosh defaults off and the saved selection reaches the renderer',async()=
   const render=app.requests.findLast(r=>r.url.endsWith('/render'));
   assert.equal(JSON.parse(render.options.body).transitionSound,true);
   assert.equal(app.get('transition-sound').disabled,true);
+});
+
+
+test('PDF defaults on, downloads beside video and disabled preference reaches render',async()=>{
+  const app=await boot({saved:true});
+  assert.equal(app.get('create-pdf').checked,true);
+  await app.get('generate').events.click();app.complete();await app.tick();
+  assert.equal(app.get('download-pdf').hidden,false);
+  assert.equal(app.get('download-pdf').href,'/slides.pdf');
+  const off=await boot({saved:true,pdf:false});
+  assert.equal(off.get('create-pdf').checked,false);
+  await off.get('create-pdf').events.change();
+  const settings=off.requests.findLast(r=>r.url==='/api/settings'&&r.options.method==='POST');
+  assert.equal(JSON.parse(settings.options.body).createPdf,false);
+  await off.get('generate').events.click();
+  assert.equal(JSON.parse(off.requests.findLast(r=>r.url.endsWith('/render')).options.body).createPdf,false);
+  off.complete();await off.tick();assert.equal(off.get('download-pdf').hidden,true);
 });
