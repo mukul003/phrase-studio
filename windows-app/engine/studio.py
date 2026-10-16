@@ -343,7 +343,13 @@ def slide(doc, section, path, width, height):
         box((140, 180, 1760, 850), '#223f49', 58)
         box((116, 156, 1736, 826), '#f4f0e6', 58)
         box((176, 220, 188, 752), '#62b8a6', 6)
-        fitted(text, (246, 270, 1350, 470), 116, 40, BG, True)
+        title_parts = text.split(' — ', 1)
+        if len(title_parts) == 2 and all(title_parts):
+            fitted(title_parts[0], (246, 285, 1350, 260), 116, 40, BG, True)
+            box((846, 572, 1006, 580), '#62b8a6', 4)
+            fitted(title_parts[1], (286, 620, 1270, 115), 52, 32, '#375e67', True)
+        else:
+            fitted(text, (246, 270, 1350, 470), 116, 40, BG, True)
         box((1570, 110, 1680, 128), ACCENT, 9)
         box((1710, 110, 1740, 128), '#8ddacb', 9)
         image.save(path)
