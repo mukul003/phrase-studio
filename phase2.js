@@ -19,7 +19,7 @@ function phrase(){return session.lesson.phrases.find(p=>p.id===current().phraseI
 function disabled(id,value){$(id).disabled=value;}
 // Keep the recording path separate from navigation, playback and downloads.
 function renderRecordingActions(){
- const memo=session.source==='voice-memos',complete=session.segments.every(s=>s.complete);
+ const memo=session.source==='voice-memos',complete=session.segments.every(s=>s.complete),advanceLabel=index===session.segments.length-1?'Save & finish':'Save & next';
  if($('studio').dataset.actionSession!==session.id){
   for(const id of ['reviewOptions','downloadOptions','recordingHelp','stopOptions','allSections','recordingOptions'])$(id).open=false;
   $('studio').dataset.actionSession=session.id;
@@ -36,7 +36,8 @@ function renderRecordingActions(){
  show('sourceNote',memo&&!previewing);
  $('sourceNote').textContent='Voice Memos records your audio separately. This screen tracks section timings only.';
  $('record').textContent=busy?'Please wait…':current().complete?'Record this section again':memo?'Start timing':'Start recording';
- $('next').textContent=index===session.segments.length-1?'Save & finish':'Save & next →';
+ $('next').textContent=advanceLabel+(index===session.segments.length-1?'':' →');
+ $('instruction').textContent=index===session.segments.length-1?'Read once, then tap Save & finish.':memo?'Read once, then tap Save & next as soon as you finish.':'Read once. Save & next starts the next section immediately.';
  $('begin').textContent='Marker spoken — begin section';
  $('pauseRecording').textContent=paused?(memo?'Resume with new marker':'Resume recording'):'Pause';
  $('pauseRecording').classList.toggle('primary',paused);
@@ -44,7 +45,7 @@ function renderRecordingActions(){
  $('record').classList.toggle('primary',!complete);
  $('stop').textContent=memo&&(paused||markerPending)?'End timing session':'Save this section & stop';
  $('stopHelp').textContent=memo&&(paused||markerPending)?'End timing here. Earlier completed sections stay saved; this section needs a fresh marker when you return.':'Save this section without moving on. You can continue later.';
- $('flowHint').textContent=previewing?'Listening. Stop playback to return to recording.':busy?'Saving or preparing your recording…':markerPending?'Say the marker above, then begin the section.':paused?(memo?'Timing paused. Pause Voice Memos separately; resume with a new marker.':'Paused. Resume to continue, or redo for a clean take.'):active?'Read once. Tap Save & next as soon as you finish.':complete?'Lesson complete. Open Finish & download below.':current().complete?'This section is saved. Record it again or choose another under Review.':memo?'Start Voice Memos first, then tap Start timing.':'Tap Start recording, then read the section above.';
+ $('flowHint').textContent=previewing?'Listening. Stop playback to return to recording.':busy?'Saving or preparing your recording…':markerPending?'Say the marker above, then begin the section.':paused?(memo?'Timing paused. Pause Voice Memos separately; resume with a new marker.':'Paused. Resume to continue, or redo for a clean take.'):active?'Read once. Tap '+advanceLabel+' as soon as you finish.':complete?'Lesson complete. Open Finish & download below.':current().complete?'This section is saved. Record it again or choose another under Review.':memo?'Start Voice Memos first, then tap Start timing.':'Tap Start recording, then read the section above.';
  show('play',!memo);show('previewLesson',!memo);show('exportZip',!memo);
  $('reviewSummary').textContent=memo?'Review sections':'Review recording';
  $('exportJson').textContent=memo?'Download timing file':'Timing backup (JSON)';
