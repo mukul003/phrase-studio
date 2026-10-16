@@ -38,7 +38,7 @@ test('recording screen only shows actions for the current state',async()=>{
  const visible=id=>!h.ids[id].classList.contains('hidden');
  assert.equal(visible('record'),true);
  for(const id of ['next','pauseRecording','restartSection','begin','stopPreview','stopOptions'])assert.equal(visible(id),false,id);
- assert.equal(h.ids.downloadOptions.open,undefined);
+ assert.equal(h.ids.downloadOptions.open,false);
  await h.click('record');
  assert.equal(visible('record'),false);assert.equal(visible('next'),true);
  for(const id of ['pauseRecording','restartSection','stopOptions'])assert.equal(visible(id),true,id);
